@@ -185,7 +185,7 @@ All measurements were taken on identical unprotected inputs against **`BLA v3.2.
 
 - **[Vibe-Slayer](https://github.com/HUSMUS9999/vibe-slayer)** *(this repository)* — Full-stack zero-dependency asset, binary, website/Web Component, AI weight, and 3D stream protection platform.
 - **[ProxySnare](https://github.com/HUSMUS9999/proxysnare)** — Standalone middleware & CLI shield that detects and blocks intercepting HTTP proxies and automated repeaters.
-- **[CloakGate](https://github.com/HUSMUS9999/cloakgate)** — Drop-in browser SDK, `<cloak-gate>` Web Component, and reverse-proxy middleware for detecting and blocking anti-detect and stealth browsers.
+- **[VeilBreak](https://github.com/HUSMUS9999/veilbreak)** — Drop-in browser SDK, `<veil-break>` Shadow DOM Web Component, reverse-proxy middleware, and Python verifier for detecting and blocking anti-detect and stealth browsers across Chromium & Gecko.
 
 ---
 

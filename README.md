@@ -24,7 +24,7 @@
 
 ## Features
 
-- **Plain-English CLI (`ask` & `explain`)** — Protect sites, 3D assets, or repos in everyday English with safe `dry-run` previews before touching disk
+- **Natural-Language CLI (`ask` & `explain`)** — Protect sites, 3D assets, or repos in natural language with safe `dry-run` previews before touching disk
 - **Live Websites & Web Components (`.vsweb`)** — AES-256-GCM encrypted delivery with non-extractable ECDH P-256 WebCrypto leases, Shadow DOM / Custom Elements support, and offline-dead runtime-keyed JS
 - **Physics-Invariant Anti-Stealth (`--anti-stealth`)** — Detects and blocks C++-patched anti-detect and stealth browsers across loader, server SHA-256 attestation, and inline `.mjs` guards, and traps CDP `Runtime.enable` agents
 - **Zero-Geometry 3D Streaming (`--mode stream`)** — Streams AES-256-GCM frames carrying an invisible 64-bit forensic buyer watermark (0 vertices, UVs, textures, shaders, or WebGL exposed), plus optional 60 FPS WebGL2 `--mode gpu`
@@ -44,12 +44,12 @@ cargo build --release --manifest-path vibeslayer-native-core/rust_core/Cargo.tom
 cp vibeslayer-native-core/rust_core/target/release/vibe-slayer ./vibe-slayer
 ```
 
-### 2. Start in Plain English (`explain` & `ask`)
+### 2. Start in Natural Language (`explain` & `ask`)
 
 No flags to memorize — preview safely (`dry-run`) with `explain`, or run immediately with `ask`:
 
 ```bash
-# Preview the exact command & plain-English explanation first (zero changes on disk)
+# Preview the exact command & natural-language explanation first (zero changes on disk)
 ./vibe-slayer explain "protect my website ./dist and block stealth browsers on port 8080"
 
 # Protect a website / Web Components app and block anti-detect / stealth browsers
@@ -104,7 +104,7 @@ Vibe-Slayer replaces obscurity with standard **256-bit AEAD** (`AES-256-GCM`, he
 
 ```mermaid
 flowchart TB
-    CLI["vibe-slayer (Standalone Rust Binary, 0 Crates + Plain-English ask/explain)"]
+    CLI["vibe-slayer (Standalone Rust Binary, 0 Crates + Natural-Language ask/explain)"]
 
     subgraph WEB["Live Websites & Web Components"]
         W1["website --preset paranoid"] --> W2[".vsweb AES-256-GCM Blobs + Offline-Dead rtKey JS + Inline Anti-Stealth Guard"]
@@ -170,7 +170,7 @@ All measurements were taken on identical unprotected inputs against **`BLA v3.2.
 
 | Audience | Guide | Topics |
 | :--- | :--- | :--- |
-| **Beginners** | **[Plain-English Beginner's Guide](docs/getting-started-beginners.md)** | `./vibe-slayer ask` and `explain` with copy-paste everyday recipes |
+| **Beginners** | **[Natural-Language Beginner's Guide](docs/getting-started-beginners.md)** | `./vibe-slayer ask` and `explain` with copy-paste everyday recipes |
 | **Evaluators & CTOs** | **[Vision & Head-to-Head Benchmarks](docs/vision-and-benchmarks.md)** | Why static obfuscation failed vs. AI agents + full `BLA v3.2.1` benchmarks |
 | **Frontend & Web Devs** | **[Live Websites & Web Components](docs/web-and-web-components.md)** | Standalone `.vsweb` ECDH P-256 runtime, Shadow DOM, `--harden-js`, `--anti-cdp`, and `--anti-stealth` |
 | **3D & Spatial Teams** | **[3D Shield & Encrypted Stream](docs/3d-shield-and-stream.md)** | `--mode stream` (zero-geometry AES-GCM frames) vs. `--mode gpu` (60 FPS WebGL2) & 64-bit forensic tracing |

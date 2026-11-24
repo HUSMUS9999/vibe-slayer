@@ -182,8 +182,8 @@ impl CspMode {
 
     pub fn header_line(self) -> &'static str {
         match self {
-            Self::Strict => "Content-Security-Policy: default-src 'self'; script-src 'self' blob:; style-src 'self' 'unsafe-inline' blob:; img-src 'self' data: blob:; connect-src 'self'; frame-src 'self' about:; object-src 'none'; frame-ancestors 'none'\r\n",
-            Self::Relaxed => "Content-Security-Policy: default-src 'self' https:; script-src 'self' blob:; style-src 'self' 'unsafe-inline' https: blob:; img-src 'self' data: blob: https:; connect-src 'self' https:; frame-src 'self' about:; object-src 'none'; frame-ancestors 'none'\r\n",
+            Self::Strict => "Content-Security-Policy: default-src 'self'; script-src 'self' blob:; style-src 'self' 'unsafe-inline' blob:; img-src 'self' data: blob:; font-src 'self' data: blob:; media-src 'self' data: blob:; connect-src 'self' blob:; frame-src 'self'; object-src 'none'; frame-ancestors 'none'\r\n",
+            Self::Relaxed => "Content-Security-Policy: default-src 'self' https:; script-src 'self' blob:; style-src 'self' 'unsafe-inline' https: blob:; img-src 'self' data: blob: https:; font-src 'self' data: blob: https:; media-src 'self' data: blob: https:; connect-src 'self' blob: https:; frame-src 'self'; object-src 'none'; frame-ancestors 'none'\r\n",
             Self::Off => "",
         }
     }

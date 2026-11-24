@@ -151,7 +151,7 @@ async function unsealVspkWithWebCrypto({
   if (parseAntiStealthMode(antiStealth) !== "off") {
     await collectStealthAttestation({
       mode: antiStealth,
-      ticket: grant?.jti || "",
+      ticket: grant?.claims?.jti || grant?.jti || "",
       publicKey: session?.publicKeySpkiB64 || "",
       telemetry,
     });

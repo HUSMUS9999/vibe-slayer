@@ -130,6 +130,7 @@ impl JsonVal {
 }
 
 struct Parser<'a> {
+    input: &'a str,
     bytes: &'a [u8],
     pos: usize,
 }
@@ -137,6 +138,7 @@ struct Parser<'a> {
 impl<'a> Parser<'a> {
     fn new(input: &'a str) -> Self {
         Self {
+            input,
             bytes: input.as_bytes(),
             pos: 0,
         }
@@ -266,13 +268,17 @@ impl<'a> Parser<'a> {
             } else if b < 0x20 {
                 return Err("UNESCAPED_CONTROL_CHAR".to_string());
             } else {
-                // Consume valid UTF-8 scalar cleanly
-                let tail = std::str::from_utf8(&self.bytes[self.pos..])
-                    .map_err(|_| "INVALID_UTF8_IN_JSON".to_string())?;
-                let mut iter = tail.chars();
-                let ch = iter.next().ok_or_else(|| "EOF_IN_STR".to_string())?;
-                out.push(ch);
-                self.pos += ch.len_utf8();
+                // O(N) fast scan of contiguous unescaped UTF-8 run (input is already validated &str)
+                let start = self.pos;
+                self.pos += 1;
+                while self.pos < self.bytes.len() {
+                    let nb = self.bytes[self.pos];
+                    if nb == b'"' || nb == b'\\' || nb < 0x20 {
+                        break;
+                    }
+                    self.pos += 1;
+                }
+                out.push_str(&self.input[start..self.pos]);
             }
         }
         Err("UNTERMINATED_STRING".to_string())

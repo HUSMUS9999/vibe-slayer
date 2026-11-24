@@ -41,7 +41,21 @@ fn parse_key32(hex: &str) -> Result<[u8; 32], String> {
 }
 
 fn default_suite_native_path(rel: &str) -> Result<PathBuf, String> {
+    if let Some(ws) = auto_cli::detect_workspace_root() {
+        let candidate = ws.join(rel);
+        if candidate.exists() {
+            return Ok(candidate);
+        }
+    }
     let exe_dir = env::current_exe().map_err(|e| format!("current_exe failed: {e}"))?;
+    let mut cur = exe_dir.parent();
+    while let Some(dir) = cur {
+        let candidate = dir.join(rel);
+        if candidate.exists() {
+            return Ok(candidate);
+        }
+        cur = dir.parent();
+    }
     let root = exe_dir
         .parent()
         .and_then(|p| p.parent())

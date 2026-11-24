@@ -30,9 +30,10 @@ function normalizeAntiStealth(val = "off") {
 function osFamilyFromStr(val) {
   const s = String(val || "").toLowerCase();
   if (!s) return null;
-  if (s.includes("win")) return "win";
-  if (s.includes("mac")) return "mac";
   if (s.includes("android")) return "android";
+  if (s.includes("iphone") || s.includes("ipad") || s.includes("ipod")) return "ios";
+  if (s.includes("windows") || s.startsWith("win") || s.includes("win64") || s.includes("wow64")) return "win";
+  if (s.includes("macintosh") || s.includes("mac os") || s.startsWith("mac") || s === "macos") return "mac";
   if (s.includes("linux") || s.includes("x11")) return "linux";
   return null;
 }
@@ -181,6 +182,7 @@ function definePolicy(raw) {
     throw policyError("INVALID_POLICY", 500, "At least one action definition required");
   }
 
+  const defaultAntiStealth = normalizeAntiStealth(raw.antiStealth ?? "off");
   const actions = {};
   for (const [actionName, spec] of Object.entries(raw.actions)) {
     if (!spec || !CONFIG.MODES.has(spec.mode)) {
@@ -193,7 +195,6 @@ function definePolicy(raw) {
     for (const [paramName, rule] of Object.entries(params)) {
       validateParamRule(paramName, rule);
     }
-    const defaultAntiStealth = normalizeAntiStealth(raw.antiStealth ?? "off");
     actions[actionName] = Object.freeze({
       name: actionName,
       mode: spec.mode,
@@ -293,7 +294,11 @@ function verifySignedToken(secret, token) {
   if (typeof token !== "string" || !token.includes(".")) {
     throw policyError("MISSING_LEASE", 401, "Signed lease token required");
   }
-  const [body, sig] = token.split(".", 2);
+  const parts = token.split(".");
+  if (parts.length !== 2 || !parts[0] || !parts[1]) {
+    throw policyError("BAD_SIGNATURE", 401, "Malformed lease token");
+  }
+  const [body, sig] = parts;
   const expected = crypto.createHmac("sha256", secret).update(body).digest();
   let provided;
   try {
@@ -444,6 +449,7 @@ function redactResult(value, redactFields) {
 }
 
 function createGateway(policy) {
+  const gatewaySecret = Buffer.from(policy.signingSecret);
   const leaseUses = new Map();
   const rateBuckets = new Map();
   let server = null;
@@ -480,7 +486,7 @@ function createGateway(policy) {
   }
 
   function verifyLeaseForAction(action, token, originHeader, now) {
-    const claims = verifySignedToken(policy.signingSecret, token);
+    const claims = verifySignedToken(gatewaySecret, token);
     if (claims.exp <= now) {
       throw policyError("LEASE_EXPIRED", 401, "Lease has expired");
     }
@@ -512,20 +518,21 @@ function createGateway(policy) {
     return new Promise((resolve, reject) => {
       const chunks = [];
       let total = 0;
-      let tooLarge = false;
+      let done = false;
       req.on("data", (chunk) => {
+        if (done) return;
         total += chunk.length;
         if (total > policy.maxBodyBytes) {
-          tooLarge = true;
+          done = true;
+          req.resume();
+          reject(policyError("BODY_TOO_LARGE", 413, "Request payload exceeds policy limit"));
           return;
         }
         chunks.push(chunk);
       });
       req.on("end", () => {
-        if (tooLarge) {
-          reject(policyError("BODY_TOO_LARGE", 413, "Request payload exceeds policy limit"));
-          return;
-        }
+        if (done) return;
+        done = true;
         const raw = Buffer.concat(chunks).toString("utf8");
         try {
           resolve(raw ? JSON.parse(raw) : {});
@@ -533,7 +540,12 @@ function createGateway(policy) {
           reject(policyError("BAD_JSON", 400, "Invalid JSON request body"));
         }
       });
-      req.on("error", reject);
+      req.on("error", (err) => {
+        if (!done) {
+          done = true;
+          reject(err);
+        }
+      });
     });
   }
 
@@ -548,6 +560,24 @@ function createGateway(policy) {
 
     const url = new URL(req.url, "http://localhost");
     const prefix = "/v1/action/";
+    if (req.method === "OPTIONS" && url.pathname.startsWith(prefix)) {
+      const optAction = policy.actions[decodeURIComponent(url.pathname.slice(prefix.length))];
+      const reqOrigin = req.headers.origin || "";
+      if (optAction && reqOrigin && (optAction.allowedOrigins.length === 0 || optAction.allowedOrigins.includes(reqOrigin))) {
+        res.writeHead(204, {
+          "access-control-allow-origin": reqOrigin,
+          "access-control-allow-methods": "POST, OPTIONS",
+          "access-control-allow-headers": "content-type, authorization, x-vs-origin, x-vs-attest",
+          "access-control-max-age": "600",
+          vary: "Origin",
+        });
+        res.end();
+        return;
+      }
+      res.writeHead(403, { "content-type": "application/json" });
+      res.end(JSON.stringify({ ok: false, code: "ORIGIN_DENIED" }));
+      return;
+    }
     if (req.method !== "POST" || !url.pathname.startsWith(prefix)) {
       res.writeHead(404, { "content-type": "application/json" });
       res.end(JSON.stringify({ ok: false, code: "NOT_FOUND" }));
@@ -562,7 +592,8 @@ function createGateway(policy) {
       return;
     }
 
-    const originHeader = req.headers["x-vs-origin"] || req.headers.origin || "";
+    // Prefer genuine browser `Origin` header; only fall back to `x-vs-origin` for non-browser callers
+    const originHeader = req.headers.origin || req.headers["x-vs-origin"] || "";
     checkOrigin(action, originHeader);
     const body = await readJsonBody(req);
     let attestObj = body && typeof body === "object" ? body.attest ?? null : null;
@@ -580,7 +611,12 @@ function createGateway(policy) {
       actionName: action.name,
       origin: originHeader,
     });
-    const cleanParams = validateActionParams(action.params, body.params ?? body);
+    let rawParamCandidate = body && typeof body === "object" && body.params !== undefined ? body.params : body;
+    if (body && typeof body === "object" && body.params === undefined && Object.prototype.hasOwnProperty.call(body, "attest")) {
+      const { attest: _ignoredAttest, ...restParams } = body;
+      rawParamCandidate = restParams;
+    }
+    const cleanParams = validateActionParams(action.params, rawParamCandidate);
 
     let claims = { sub: "anonymous", jti: "public" };
     if (action.mode !== "public-preview") {
@@ -613,7 +649,7 @@ function createGateway(policy) {
       const aad = `v=${policy.version};act=${action.name};jti=${claims.jti};org=${originHeader}`;
       const contentKey = crypto.hkdfSync(
         "sha256",
-        policy.signingSecret,
+        gatewaySecret,
         Buffer.from(claims.jti, "utf8"),
         Buffer.from(aad, "utf8"),
         32
@@ -646,7 +682,7 @@ function createGateway(policy) {
     },
     issueLease({ subject, scopes = [], origin = "", action = "", ttlMs, maxUses }) {
       const now = Date.now();
-      return signPayload(policy.signingSecret, {
+      return signPayload(gatewaySecret, {
         jti: crypto.randomBytes(16).toString("base64url"),
         sub: subject,
         scp: scopes,
@@ -678,7 +714,7 @@ function createGateway(policy) {
     async close() {
       leaseUses.clear();
       rateBuckets.clear();
-      policy.signingSecret.fill(0);
+      gatewaySecret.fill(0);
       if (!server) return;
       await new Promise((resolve) => server.close(() => resolve()));
       server = null;

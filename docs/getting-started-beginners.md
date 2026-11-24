@@ -1,10 +1,10 @@
 # Beginner's Guide: Using Vibe-Slayer in Plain English
 
-[← Back to README](../README.md) · [CLI & Configuration](./cli-and-configuration.md) · [Vision & Benchmarks](./vision-and-benchmarks.md)
+[← Back to README](../README.md) · [Web & Web Components](./web-and-web-components.md) · [3D Shield](./3d-shield-and-stream.md) · [CLI & Configuration](./cli-and-configuration.md) · [Vision & Benchmarks](./vision-and-benchmarks.md)
 
 You do **not** need to be a cryptography or reverse-engineering expert to protect your website, Web Components, 3D models, source code, or Linux binaries.
 
-Vibe-Slayer includes a **built-in plain-English command translator** (`ask` and `explain`) that runs 100% locally in Rust (zero API keys, zero internet calls, zero Node.js). You describe what you want in everyday language, Vibe-Slayer shows you the exact command and explains every flag in plain English, and then runs it.
+Vibe-Slayer includes a **built-in natural-language command translator** (`ask` and `explain`) that runs 100% locally in Rust (zero API keys, zero internet calls, zero Node.js). You describe what you want in everyday language, Vibe-Slayer shows you the exact command and explains every flag clearly, and then runs it.
 
 ---
 
@@ -13,18 +13,18 @@ Vibe-Slayer includes a **built-in plain-English command translator** (`ask` and 
 Use `./vibe-slayer explain "..."` anytime you want to see what Vibe-Slayer *would* do without modifying a single file:
 
 ```bash
-./vibe-slayer explain "protect my website ./dist and block cloakbrowser on port 8080"
+./vibe-slayer explain "protect my website ./dist and block stealth browsers on port 8080"
 ```
 
 Example output:
 ```text
 [vibe-slayer natural language]
-  You asked: "protect my website ./dist and block cloakbrowser on port 8080"
+  You asked: "protect my website ./dist and block stealth browsers on port 8080"
   Goal:      Encrypt website & Web Components in ./dist -> ./dist-protected
   Command:   ./vibe-slayer website ./dist -o ./dist-protected --preset paranoid --origin http://127.0.0.1:8080 --anti-stealth strict
   Why:
-    - Paranoid preset selected for maximum defense (anti-CloakBrowser strict, anti-CDP, JS rtKey hardening, zero-geometry 3D stream)
-    - --anti-stealth strict: blocks CloakBrowser via 6 hardware/physics invariants before any lease or Custom Element mounts
+    - Paranoid preset selected for maximum defense (strict anti-stealth, anti-CDP, JS rtKey hardening, zero-geometry 3D stream)
+    - --anti-stealth strict: blocks anti-detect / stealth browsers (e.g. CloakBrowser) via 6 rendering & OS invariants before any lease or Custom Element mounts
   Next step:
     ./vibe-slayer serve ./dist-protected --preset paranoid --addr 127.0.0.1:8080 --origin http://127.0.0.1:8080 --anti-stealth strict
   Mode:      DRY-RUN (remove --dry-run or use './vibe-slayer ask ...' to execute)
@@ -34,7 +34,7 @@ When you are happy with the plan, change `explain` to **`ask`** (or **`do`**) to
 
 ---
 
-## 2. Everyday Plain-English Recipes
+## 2. Everyday Natural-Language Recipes
 
 ### Want to see how everything works in 10 seconds?
 ```bash
@@ -42,19 +42,20 @@ When you are happy with the plan, change `explain` to **`ask`** (or **`do`**) to
 ```
 Creates a temporary sandbox project, scans for leaked secrets, encrypts code & a compiled binary & a 3D model, runs all security checks, traces a watermarked leak, and restores everything cleanly.
 
-### Protect a Website or Web Components App (and Block CloakBrowser)
+### Protect a Website or Web Components App (and Block Stealth Browsers)
 ```bash
 # Step 1: Encrypt your site & Web Components
-./vibe-slayer ask "protect my website ./dist and block cloakbrowser on port 8080"
+./vibe-slayer ask "protect my website ./dist and block stealth browsers on port 8080"
 
 # Step 2: Launch the zero-Node live runtime server
 ./vibe-slayer ask "serve my protected website ./dist-protected on port 8080"
 ```
 
-Need privacy-hardened browsers (like Brave Shields Aggressive) to keep working while still blocking CloakBrowser? Just say so:
+Need a higher tolerance threshold (`balanced`, `score >= 4`) for single-signal privacy extensions while still blocking multi-invariant anti-detect browsers?
 ```bash
-./vibe-slayer ask "protect my website ./dist and block cloakbrowser while keeping brave working"
+./vibe-slayer ask "protect my website ./dist and block stealth browsers in balanced mode"
 ```
+*(Note: browsers that simultaneously randomize Canvas, WebGL, and Audio — such as Brave Shields Aggressive, Tor Browser, or Firefox `privacy.resistFingerprinting` — can score `4–6`; use `--anti-stealth off` if your audience relies on those.)*
 
 Deploying behind Nginx, Caddy, or Cloudflare?
 ```bash
@@ -63,10 +64,10 @@ Deploying behind Nginx, Caddy, or Cloudflare?
 
 ### Protect & Stream a 3D `.glb` Model (Zero Geometry Sent to Browser)
 ```bash
-# Step 1: Cook encrypted 3D bundle (keeps master key outside the bundle folder)
+# Step 1: Cook encrypted 3D bundle (keeps master key outside the bundle folder at ./hero.glb.vsshield.key)
 ./vibe-slayer ask "stream my 3d model ./hero.glb without sending geometry"
 
-# Step 2: Start the zero-geometry encrypted pixel stream viewer
+# Step 2: Start the zero-geometry encrypted pixel stream viewer (auto-detects ./hero.glb.vsshield.key)
 ./vibe-slayer ask "serve my 3d model ./hero.glb.shielded on port 8790 without sending geometry"
 ```
 
@@ -118,8 +119,8 @@ If you prefer explicit flags over plain English, every command accepts just **on
 | I want... | Use this preset | What it turns on automatically |
 | :--- | :--- | :--- |
 | **Local dev / Playwright CI tests** | `--preset fast` | Fast encryption, relaxed CSP, anti-automation probes off so automated tests pass |
-| **Public consumer website / 60 FPS WebGL** | `--preset balanced` *(default)* | Strict CSP, anti-CDP, balanced anti-CloakBrowser (`score >= 4`, Brave-friendly), 60 FPS GPU 3D |
-| **Paid SaaS, Web Components, High-Value 3D IP** | `--preset paranoid` | Offline-dead `rtKey` JS hardening, 96 KB AI decoy VM, inline Web Component CloakBrowser guard, strict server attestation, zero-geometry encrypted 3D pixel streaming |
+| **Public consumer website / 60 FPS WebGL** | `--preset balanced` *(default)* | Strict CSP, anti-CDP, balanced anti-stealth (`score >= 4`), 60 FPS GPU 3D |
+| **Paid SaaS, Web Components, High-Value 3D IP** | `--preset paranoid` | Runtime-keyed `rtKey` JS hardening, optional `96 KB` decoy VM (`--js-bloat-kb`), inline Web Component stealth guard, strict server verification, zero-geometry encrypted 3D pixel streaming |
 
 ---
 

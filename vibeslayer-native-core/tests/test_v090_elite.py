@@ -41,7 +41,7 @@ class TestV090EliteHardening(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="vs090-vspk3-") as td:
             tdir = Path(td)
             key = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
-            plain = b"SECRET_FORMULA_V090=" + (b"A" * 512)
+            plain = b"SECRET_FORMULA_V090=" + (b"A" * 2048)
             in_p = tdir / "in.bin"
             out_p = tdir / "out.vspk3"
             dec_p = tdir / "dec.bin"

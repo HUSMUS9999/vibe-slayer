@@ -1,0 +1,11 @@
+{
+  "name": "vibeslayer-benchmarks",
+  "private": true,
+  "description": "Optional dev dependencies for reproducing benchmarks/run_unbiased_benchmark.py",
+  "devDependencies": {
+    "esbuild": "^0.24.0",
+    "terser": "^5.36.0",
+    "javascript-obfuscator": "^4.1.1",
+    "js-confuser": "^2.0.0"
+  }
+}

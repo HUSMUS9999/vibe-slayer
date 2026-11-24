@@ -73,9 +73,14 @@ VS_ALWAYS_INLINE void vs_store32_be(uint8_t *p, uint32_t v) {
 
 VS_ALWAYS_INLINE void vs_secure_zero(void *ptr, size_t len) {
     if (!ptr || len == 0U) return;
-    memset(ptr, 0, len);
 #if defined(__GNUC__) || defined(__clang__)
+    memset(ptr, 0, len);
     __asm__ __volatile__("" : : "r"(ptr) : "memory");
+#else
+    volatile uint8_t *vp = (volatile uint8_t *)ptr;
+    while (len--) {
+        *vp++ = 0U;
+    }
 #endif
 }
 
@@ -99,43 +104,49 @@ VS_ALWAYS_INLINE uint64_t vs_xgetbv0(void) {
 
 static inline int vs_has_shani(void) {
     static int cached = -1;
-    if (cached >= 0) return cached;
+    int c = __atomic_load_n(&cached, __ATOMIC_RELAXED);
+    if (c >= 0) return c;
     uint32_t eax = 0, ebx = 0, ecx = 0, edx = 0;
     vs_cpuid(0U, 0U, &eax, &ebx, &ecx, &edx);
-    if (eax < 7U) { cached = 0; return 0; }
+    if (eax < 7U) { __atomic_store_n(&cached, 0, __ATOMIC_RELAXED); return 0; }
     vs_cpuid(1U, 0U, &eax, &ebx, &ecx, &edx);
-    if ((ecx & (1U << 9)) == 0U || (ecx & (1U << 19)) == 0U) { cached = 0; return 0; }
+    if ((ecx & (1U << 9)) == 0U || (ecx & (1U << 19)) == 0U) { __atomic_store_n(&cached, 0, __ATOMIC_RELAXED); return 0; }
     vs_cpuid(7U, 0U, &eax, &ebx, &ecx, &edx);
-    cached = ((ebx & (1U << 29)) != 0U) ? 1 : 0;
-    return cached;
+    c = ((ebx & (1U << 29)) != 0U) ? 1 : 0;
+    __atomic_store_n(&cached, c, __ATOMIC_RELAXED);
+    return c;
 }
 
 static inline int vs_has_avx2(void) {
     static int cached = -1;
-    if (cached >= 0) return cached;
+    int c = __atomic_load_n(&cached, __ATOMIC_RELAXED);
+    if (c >= 0) return c;
     uint32_t eax = 0, ebx = 0, ecx = 0, edx = 0;
     vs_cpuid(0U, 0U, &eax, &ebx, &ecx, &edx);
-    if (eax < 7U) { cached = 0; return 0; }
+    if (eax < 7U) { __atomic_store_n(&cached, 0, __ATOMIC_RELAXED); return 0; }
     vs_cpuid(1U, 0U, &eax, &ebx, &ecx, &edx);
-    if ((ecx & (1U << 27)) == 0U || (ecx & (1U << 28)) == 0U) { cached = 0; return 0; }
-    if ((vs_xgetbv0() & 0x6ULL) != 0x6ULL) { cached = 0; return 0; }
+    if ((ecx & (1U << 27)) == 0U || (ecx & (1U << 28)) == 0U) { __atomic_store_n(&cached, 0, __ATOMIC_RELAXED); return 0; }
+    if ((vs_xgetbv0() & 0x6ULL) != 0x6ULL) { __atomic_store_n(&cached, 0, __ATOMIC_RELAXED); return 0; }
     vs_cpuid(7U, 0U, &eax, &ebx, &ecx, &edx);
-    cached = ((ebx & (1U << 5)) != 0U) ? 1 : 0;
-    return cached;
+    c = ((ebx & (1U << 5)) != 0U) ? 1 : 0;
+    __atomic_store_n(&cached, c, __ATOMIC_RELAXED);
+    return c;
 }
 
 static inline int vs_has_avx512f(void) {
     static int cached = -1;
-    if (cached >= 0) return cached;
+    int c = __atomic_load_n(&cached, __ATOMIC_RELAXED);
+    if (c >= 0) return c;
     uint32_t eax = 0, ebx = 0, ecx = 0, edx = 0;
     vs_cpuid(0U, 0U, &eax, &ebx, &ecx, &edx);
-    if (eax < 7U) { cached = 0; return 0; }
+    if (eax < 7U) { __atomic_store_n(&cached, 0, __ATOMIC_RELAXED); return 0; }
     vs_cpuid(1U, 0U, &eax, &ebx, &ecx, &edx);
-    if ((ecx & (1U << 27)) == 0U || (ecx & (1U << 28)) == 0U) { cached = 0; return 0; }
-    if ((vs_xgetbv0() & 0xe6ULL) != 0xe6ULL) { cached = 0; return 0; }
+    if ((ecx & (1U << 27)) == 0U || (ecx & (1U << 28)) == 0U) { __atomic_store_n(&cached, 0, __ATOMIC_RELAXED); return 0; }
+    if ((vs_xgetbv0() & 0xe6ULL) != 0xe6ULL) { __atomic_store_n(&cached, 0, __ATOMIC_RELAXED); return 0; }
     vs_cpuid(7U, 0U, &eax, &ebx, &ecx, &edx);
-    cached = ((ebx & (1U << 16)) != 0U) ? 1 : 0;
-    return cached;
+    c = ((ebx & (1U << 16)) != 0U) ? 1 : 0;
+    __atomic_store_n(&cached, c, __ATOMIC_RELAXED);
+    return c;
 }
 #endif
 

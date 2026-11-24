@@ -6,11 +6,24 @@ by compiled C shared library `bin/libvibeslayer.so` via `ctypes`.
 from __future__ import annotations
 
 import ctypes
+import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-_SO_PATH = Path(__file__).resolve().parent.parent / "bin" / "libvibeslayer.so"
+_BIN_DIR = Path(__file__).resolve().parent.parent / "bin"
+if sys.platform == "win32":
+    _LIB_NAME = "vibeslayer.dll"
+elif sys.platform == "darwin":
+    _LIB_NAME = "libvibeslayer.dylib"
+else:
+    _LIB_NAME = "libvibeslayer.so"
+_SO_PATH = _BIN_DIR / _LIB_NAME
+if not _SO_PATH.is_file():
+    raise FileNotFoundError(
+        f"Compiled native library not found at {_SO_PATH}. "
+        "Build it first with: make -C vibeslayer-native-core all"
+    )
 _LIB = ctypes.CDLL(str(_SO_PATH))
 _LIB.vs_harden_process.argtypes = []
 _LIB.vs_harden_process.restype = ctypes.c_int

@@ -33,15 +33,19 @@ pub const VERSION: &str = "1.0.0-beta.3";
 
 #[inline]
 pub fn secure_zero(buf: &mut [u8]) {
-    buf.fill(0);
-    std::hint::black_box(buf.as_mut_ptr());
+    for b in buf.iter_mut() {
+        // SAFETY: `b` is a valid, aligned, uniquely borrowed mutable reference.
+        unsafe { std::ptr::write_volatile(b, 0) };
+    }
     std::sync::atomic::compiler_fence(std::sync::atomic::Ordering::SeqCst);
 }
 
 #[inline]
 fn secure_zero_u32(buf: &mut [u32]) {
-    buf.fill(0);
-    std::hint::black_box(buf.as_mut_ptr());
+    for w in buf.iter_mut() {
+        // SAFETY: `w` is a valid, aligned, uniquely borrowed mutable reference.
+        unsafe { std::ptr::write_volatile(w, 0) };
+    }
     std::sync::atomic::compiler_fence(std::sync::atomic::Ordering::SeqCst);
 }
 pub const DEFAULT_ENABLED: bool = false;
@@ -70,11 +74,27 @@ pub struct ActionRule {
     pub params: HashMap<String, ParamRule>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct Policy {
     pub enabled: bool,
     pub master_key: [u8; 32],
     pub actions: HashMap<String, ActionRule>,
+}
+
+impl std::fmt::Debug for Policy {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Policy")
+            .field("enabled", &self.enabled)
+            .field("master_key", &"[REDACTED]")
+            .field("actions", &self.actions)
+            .finish()
+    }
+}
+
+impl Drop for Policy {
+    fn drop(&mut self) {
+        secure_zero(&mut self.master_key);
+    }
 }
 
 impl Policy {

@@ -1,14 +1,14 @@
 {
   "version": "1.0.0-beta.3",
-  "timestamp": "2026-11-24T12:08:47Z",
-  "methodology": "Identical real inputs run on the same Linux x86_64 host against real installed versions of esbuild, terser, javascript-obfuscator, js-confuser, strip, UPX 4.2.4, OpenSSL, and Vibe-Slayer.",
+  "timestamp": "2026-11-24T20:49:32Z",
+  "methodology": "Identical real inputs run on the same Linux x86_64 host. Node JS tools run in a single warm process so V8 startup is not billed to esbuild/terser; Vibe-Slayer web rows report both per-asset .vsweb size and shared loader.js overhead.",
   "javascript": [
     {
       "tool": "Raw Unprotected JS",
       "sizeBytes": 878,
       "ratio": 1.0,
       "buildMs": 0.0,
-      "offlineExecMs": 0.448,
+      "offlineExecMs": 0.398,
       "plaintextSecretInFile": true,
       "callableOffline": true,
       "staticCdnCompatible": true,
@@ -18,78 +18,82 @@
       "tool": "esbuild (--minify)",
       "sizeBytes": 527,
       "ratio": 0.6,
-      "buildMs": 77.8,
-      "offlineExecMs": 0.521,
+      "buildMs": 2.39,
+      "offlineExecMs": 0.375,
       "plaintextSecretInFile": true,
       "callableOffline": true,
       "staticCdnCompatible": true,
-      "honestNote": "Fastest build & smallest output; minification only (not security)"
+      "honestNote": "Fastest in-process build & smallest static bundle; minification only (not security)"
     },
     {
       "tool": "terser (compress + mangle)",
       "sizeBytes": 534,
       "ratio": 0.61,
-      "buildMs": 91.6,
-      "offlineExecMs": 0.411,
+      "buildMs": 8.89,
+      "offlineExecMs": 0.356,
       "plaintextSecretInFile": true,
       "callableOffline": true,
       "staticCdnCompatible": true,
-      "honestNote": "Standard production minifier; smallest static bundle, zero tamper/offline defense"
+      "honestNote": "Standard production minifier; smallest static bundle, zero offline defense"
     },
     {
       "tool": "javascript-obfuscator (default)",
-      "sizeBytes": 2096,
-      "ratio": 2.39,
-      "buildMs": 317.1,
-      "offlineExecMs": 0.753,
+      "sizeBytes": 2169,
+      "ratio": 2.47,
+      "buildMs": 48.88,
+      "offlineExecMs": 0.515,
       "plaintextSecretInFile": true,
       "callableOffline": true,
       "staticCdnCompatible": true,
-      "honestNote": "Works on static CDNs without a server; hides literal strings statically, but fully callable offline via 1-line require()"
+      "honestNote": "Static-CDN compatible; default preset leaves literal strings visible and is 100% callable offline via require()"
     },
     {
       "tool": "javascript-obfuscator (high)",
-      "sizeBytes": 5633,
-      "ratio": 6.42,
-      "buildMs": 368.1,
-      "offlineExecMs": 1.679,
+      "sizeBytes": 5733,
+      "ratio": 6.53,
+      "buildMs": 35.66,
+      "offlineExecMs": 3.433,
       "plaintextSecretInFile": false,
       "callableOffline": true,
       "staticCdnCompatible": true,
-      "honestNote": "Works on static CDNs without a server; hides literal strings statically, but fully callable offline via 1-line require()"
+      "honestNote": "Static-CDN compatible & hides string literals statically; still 100% callable offline via require()"
     },
     {
       "tool": "js-confuser (medium)",
-      "sizeBytes": 86474,
-      "ratio": 98.49,
-      "buildMs": 1045.5,
-      "offlineExecMs": 60.128,
+      "sizeBytes": 147313,
+      "ratio": 167.78,
+      "buildMs": 889.1,
+      "offlineExecMs": 42.751,
       "plaintextSecretInFile": false,
       "callableOffline": true,
       "staticCdnCompatible": true,
-      "honestNote": "Works on static CDNs without a server; heavy control-flow bloat, still callable offline"
+      "honestNote": "Static-CDN compatible; heavy AST/control-flow obfuscation, still callable offline"
     },
     {
       "tool": "Vibe-Slayer (.vsweb fast)",
       "sizeBytes": 906,
+      "loaderBytes": 8441,
+      "totalFirstLoadBytes": 9347,
       "ratio": 1.03,
-      "buildMs": 11.3,
+      "buildMs": 1.6,
       "offlineExecMs": null,
       "plaintextSecretInFile": false,
       "callableOffline": false,
       "staticCdnCompatible": false,
-      "honestNote": "Pure AES-256-GCM ciphertext (0 offline bits, minimal overhead); requires Vibe-Slayer runtime server"
+      "honestNote": "Pure AES-256-GCM (+28 B per asset + 8441 B shared loader.js); requires Vibe-Slayer serve runtime"
     },
     {
       "tool": "Vibe-Slayer (.vsweb paranoid)",
-      "sizeBytes": 102118,
-      "ratio": 116.31,
-      "buildMs": 14.4,
+      "sizeBytes": 102783,
+      "loaderBytes": 12068,
+      "totalFirstLoadBytes": 114851,
+      "ratio": 117.06,
+      "buildMs": 1.9,
       "offlineExecMs": null,
       "plaintextSecretInFile": false,
       "callableOffline": false,
       "staticCdnCompatible": false,
-      "honestNote": "AES-256-GCM + offline-dead rtKey JS + 96 KB decoy VM + inline anti-stealth guard; requires runtime server"
+      "honestNote": "AES-256-GCM + rtKey JS + fixed 96 KB opt-out decoy VM (--js-bloat-kb) + 12068 B loader.js; requires serve runtime"
     }
   ],
   "elf64": [
@@ -97,7 +101,7 @@
       "tool": "Raw gcc -O2 ELF64",
       "sizeBytes": 15992,
       "ratio": 1.0,
-      "coldStartMs": 0.524,
+      "coldStartMs": 0.388,
       "functionalOk": true,
       "plaintextRodataLeaked": true,
       "triviallyUnpackable": true,
@@ -107,32 +111,32 @@
       "tool": "strip --strip-all",
       "sizeBytes": 14480,
       "ratio": 0.91,
-      "coldStartMs": 0.475,
+      "coldStartMs": 0.349,
       "functionalOk": true,
       "plaintextRodataLeaked": true,
       "triviallyUnpackable": true,
       "honestNote": "Smaller & zero runtime overhead; strips symbol table only \u2014 .rodata & disassembly remain 100% plaintext"
     },
     {
-      "tool": "UPX 4.2.4 (--best)",
+      "tool": "UPX (--best)",
       "sizeBytes": 5348,
       "ratio": 0.33,
-      "coldStartMs": 0.584,
+      "coldStartMs": 0.442,
       "functionalOk": true,
       "plaintextRodataLeaked": false,
       "triviallyUnpackable": true,
-      "unpackMs": 10.91,
-      "honestNote": "Best compression (shrinks binary); hides raw strings at rest, but `upx -d` restores exact plaintext binary in 10.91 ms"
+      "unpackMs": 9.67,
+      "honestNote": "Best compression (shrinks binary); hides raw strings at rest, but `upx -d` restores exact plaintext binary in 9.67 ms"
     },
     {
-      "tool": "Vibe-Slayer (Static-PIE + CET)",
-      "sizeBytes": 277640,
-      "ratio": 17.36,
-      "coldStartMs": 15.138,
+      "tool": "Vibe-Slayer (Lease-Bound Static-PIE + CET)",
+      "sizeBytes": 273544,
+      "ratio": 17.11,
+      "coldStartMs": 2.169,
       "functionalOk": true,
       "plaintextRodataLeaked": false,
       "triviallyUnpackable": false,
-      "honestNote": "0 PT_INTERP/DT_NEEDED, 0 plaintext .rodata, CET + memfd_secret; trade-off: adds ~150 KB static-PIE stub + lease key runner"
+      "honestNote": "Stub has 0 PT_INTERP/DT_NEEDED, 0 plaintext .rodata, Intel CET + sealed memfd_create execveat; adds ~260 KB static-PIE stub and requires external lease key (`vibe-slayer run`)"
     }
   ],
   "ai_weights": [
@@ -140,25 +144,37 @@
       "tool": "Raw .safetensors",
       "sizeBytes": 262240,
       "ratio": 1.0,
-      "randomAccess64kMs": 0.024,
+      "readOrDecryptMs": 0.022,
+      "chunkedRandomAccess": true,
       "rawWeightsExposed": true,
-      "honestNote": "Zero-copy mmap baseline; 100% plaintext FP32 weights readable on disk"
+      "honestNote": "In-process read baseline; 100% plaintext FP32 weights readable on disk"
     },
     {
-      "tool": "OpenSSL Whole-File AES-256",
+      "tool": "OpenSSL Whole-File AES-256-CBC",
       "sizeBytes": 262256,
       "ratio": 1.0001,
-      "randomAccess64kMs": 5.057,
+      "readOrDecryptMs": 2.761,
+      "chunkedRandomAccess": false,
       "rawWeightsExposed": false,
-      "honestNote": "Standard at-rest encryption; O(N) sequential decrypt required even to read 1 tensor slice"
+      "honestNote": "Fast sequential CLI decrypt (unauthenticated CBC); O(N) full-file decrypt required for any slice"
     },
     {
-      "tool": "Vibe-Slayer VSPK3 (64 KiB AEAD)",
+      "tool": "Vibe-Slayer VSPK3 (Whole-File CMT4 AEAD)",
       "sizeBytes": 263260,
       "ratio": 1.0039,
-      "randomAccess64kMs": 13.791,
+      "readOrDecryptMs": 1.661,
+      "chunkedRandomAccess": false,
       "rawWeightsExposed": false,
-      "honestNote": "Headerless key-committing AEAD + O(1) 64 KiB chunk seek via C/Rust SDK (~0.1ms in-process; CLI time includes process spawn)"
+      "honestNote": "Headerless key-committing CMT4 + ChaCha20-Poly1305 (+92 B prefix + 1024 B pad alignment); whole-file O(N) unseal (CLI time includes process spawn; C SDK in-process unseal reaches ~3.2 GiB/s L3-hot)"
+    },
+    {
+      "tool": "Vibe-Slayer VSRA (64 KiB O(1) Chunk AEAD)",
+      "sizeBytes": 327869,
+      "ratio": 1.2503,
+      "readOrDecryptMs": 1.67,
+      "chunkedRandomAccess": true,
+      "rawWeightsExposed": false,
+      "honestNote": "vibeslayer-suite Node.js format: real O(1) 64 KiB ChaCha20-Poly1305 random-access chunk seek + per-lease watermark (in-process median)"
     }
   ]
 }

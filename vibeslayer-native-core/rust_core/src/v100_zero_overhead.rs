@@ -1609,7 +1609,11 @@ int vs_freestanding_entry(const uintptr_t *sp) {{
 
     char empty_name[1];
     empty_name[0] = '\0';
-    long mfd = sys2(319 /* SYS_memfd_create */, (long)empty_name, 3L /* MFD_CLOEXEC | MFD_ALLOW_SEALING */);
+    /* Try MFD_CLOEXEC | MFD_ALLOW_SEALING | MFD_EXEC (Linux 6.3+), falling back to 0x3 on older kernels */
+    long mfd = sys2(319 /* SYS_memfd_create */, (long)empty_name, 0x13L);
+    if (mfd < 0L) {{
+        mfd = sys2(319 /* SYS_memfd_create */, (long)empty_name, 3L /* MFD_CLOEXEC | MFD_ALLOW_SEALING */);
+    }}
     if (mfd < 0L || sys2(77 /* SYS_ftruncate */, mfd, (long)ct_len) != 0L) {{
         if (mfd >= 0L) (void)sys1(3, mfd);
         vs_secure_zero(ct_buf, (size_t)ct_len);
@@ -1687,11 +1691,16 @@ int vs_freestanding_entry(const uintptr_t *sp) {{
     size_t eo = 0U;
     for (size_t i = 0U; i < envc; i++) {{
         char *ev = envp[i];
+        /* Scrub VS_LEASE_FD=, ALL LD_* dynamic-linker vars (incl. LD_LIBRARY_PATH/LD_PRELOAD/LD_AUDIT/LD_DYNAMIC_WEAK), and glibc path overrides */
         if (vs_starts_with(ev, pfx_envfd, 12U) ||
+            (ev[0] == 'L' && ev[1] == 'D' && ev[2] == '_') ||
             vs_starts_with(ev, pfx_ldpre, 11U) ||
             vs_starts_with(ev, pfx_ldaud, 9U) ||
             vs_starts_with(ev, pfx_lddbg, 9U) ||
-            vs_starts_with(ev, pfx_ldpro, 11U)) {{
+            vs_starts_with(ev, pfx_ldpro, 11U) ||
+            vs_starts_with(ev, "GCONV_PATH=", 11U) ||
+            vs_starts_with(ev, "LOCPATH=", 8U) ||
+            vs_starts_with(ev, "HOSTALIASES=", 12U)) {{
             vs_secure_zero(ev, strlen(ev));
             continue;
         }}

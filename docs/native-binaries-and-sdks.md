@@ -1,8 +1,8 @@
 # Native Binaries, Repository Auto-Protection & Polyglot SDKs
 
-[← Back to README](../README.md) · [CLI & Configuration](./cli-and-configuration.md)
+[← Back to README](../README.md) · [Beginner's Guide](./getting-started-beginners.md) · [Web & Web Components](./web-and-web-components.md) · [CLI & Configuration](./cli-and-configuration.md) · [Threat Model](./threat-model-and-benchmarks.md)
 
-Beyond live websites and 3D streams, Vibe-Slayer protects entire source repositories, `.env` secrets, compiled Linux x86-64 `ELF64` binaries, WebAssembly modules, and AI weights — and ships **wire-compatible `VSPK2` / `VSPK3` native SDKs** across **Rust, C/C++, Go, Python**, plus companion **Node.js** packages (`vibeslayer-suite`, `vibeslayer-policy-kit`).
+Beyond live websites and 3D streams, Vibe-Slayer protects entire source repositories, `.env` secrets, compiled Linux x86-64 `ELF64` binaries (requires host `gcc` + `libc6-dev` at protection time), WebAssembly modules, and AI weights — and ships **wire-compatible `VSPK2` / `VSPK3` native SDKs** across **Rust, C/C++, Go, Python**, plus companion **Node.js** packages (`vibeslayer-suite` including `O(1)` 64 KiB chunked `.vsra` AI weights, and `vibeslayer-policy-kit`).
 
 ---
 
@@ -34,10 +34,10 @@ Point `./vibe-slayer` at any directory or individual file:
 
 | Input Type | Output / Engine | Cryptographic & Runtime Properties |
 | :--- | :--- | :--- |
-| **Source Code, Configs, `.wasm`, AI Weights** (`.py`, `.rs`, `.go`, `.c`, `.cpp`, `.js`, `.ts`, `.java`, `.cs`, `.wasm`, `.safetensors`, `.onnx`, `.gguf`, `.pt`, `.ckpt`) | `VSPK3` (`.vspk3`) | Headerless key-committing AEAD (`HKDF-SHA256` + `HMAC-SHA256` `CMT4` + `ChaCha20-Poly1305`), `1024 B` pad-then-encrypt, `0` plaintext magic bytes, `>= 7.0` bits/B entropy |
-| **Compiled Linux `ELF64` Executables** (excluding `.so`/`.node`/`.o`/`.a`) | `wrap-elf` (`.protected`) | Freestanding `-nostdlib` static-PIE wrapper (`PT_INTERP` absent, Intel CET `IBT` + `SHSTK`), scrubs `LD_PRELOAD`/`LD_AUDIT`/`VS_LEASE_FD`, blocks `ptrace` (`TracerPid` + `PR_SET_DUMPABLE=0`), hashes non-writable `PT_LOAD` segment, executes from sealed `memfd_create` via `SYS_execveat(AT_EMPTY_PATH)` |
-| **Small Secrets (`<= 4096 B`)** (`.vault`, `.secret`, or `--vault`) | `freestanding-vault` | Static-PIE ELF vault allocating decrypted payload inside kernel `memfd_secret(0)` (with `MADV_DONTDUMP` + `mlock` fallback) |
-| **3D Models (`.glb`)** | Dual `VSPK3` + cooked `VS3D` | Lossless `.glb.vspk3` for exact SHA-256 restoration + cooked `.glb.vs3d` supporting `WM64` 64-bit spread-spectrum buyer watermarking (`±2` LSB noise tolerant) |
+| **Source Code, Configs, `.wasm`, AI Weights** (`.py`, `.rs`, `.go`, `.c`, `.cpp`, `.js`, `.ts`, `.java`, `.cs`, `.wasm`, `.safetensors`, `.onnx`, `.gguf`, `.pt`, `.ckpt`) | `VSPK3` (`.vspk3`) | Whole-file headerless key-committing AEAD (`HKDF-SHA256` + `HMAC-SHA256` `CMT4` + `ChaCha20-Poly1305`), `1024 B` pad-then-encrypt, `0` plaintext magic bytes, `>= 7.0` bits/B entropy *(for `O(1)` 64 KiB random-access chunked AI weights, use `.vsra` in `vibeslayer-suite`)* |
+| **Compiled Linux `ELF64` Executables** (excluding `.so`/`.node`/`.o`/`.a`) | `wrap-elf` (`.protected`) | Freestanding `-nostdlib` static-PIE wrapper stub (`0` `PT_INTERP`/`DT_NEEDED`, Intel CET `IBT` + `SHSTK`), scrubs all `LD_*` (`LD_PRELOAD`, `LD_LIBRARY_PATH`, `LD_AUDIT`, etc.) + `GCONV_PATH`/`LOCPATH`/`HOSTALIASES`/`VS_LEASE_FD`, blocks pre-exec `ptrace` (`TracerPid` + `PR_SET_DUMPABLE=0`), hashes non-writable `PT_LOAD` segment, executes from sealed `memfd_create` via `SYS_execveat(AT_EMPTY_PATH)` *(note: Linux resets `PR_SET_DUMPABLE` on `execveat`; call `vs_harden_process()` inside the inner binary if post-exec dump hardening is needed)* |
+| **Small Secrets (`<= 4096 B`)** (`.vault`, `.secret`, or `--vault`) | `freestanding-vault` | Static-PIE ELF data vault allocating decrypted payload inside kernel `SYS_memfd_secret(0)` (with `MADV_DONTDUMP` + `mlock` fallback) |
+| **3D Models (`.glb`)** | Dual `VSPK3` + keyed `VS3D` | Lossless `.glb.vspk3` for exact SHA-256 restoration + keyed `.glb.vs3d` coordinate stream supporting `WM64` 64-bit spread-spectrum watermarking (use `shield-3d` for full glTF 2.0 web/stream rendering) |
 | **Secrets & Private Keys** (`.env`, `.pem`, `.key`, `.p12`, `.pfx`, or detected credentials) | `VSPK3` (`.vspk3`) | Automatically forced into encryption even if filename looks public; vault keys stored in `<project>/.vibeslayer/keys.json` (`0600`) and auto-added to `.gitignore` |
 
 ### Executing Protected Linux Binaries
@@ -46,7 +46,7 @@ Point `./vibe-slayer` at any directory or individual file:
 # Lease-bound binary (master/lease key stays out of the executable, passed via private FD 3 pipe)
 ./vibe-slayer run ./my_program.protected -- --port 9000
 
-# Standalone binary (compiled with --standalone; no external keys.json needed at runtime)
+# Standalone binary (compiled with --standalone; self-contained wrapper — key is derived inside the binary, so treat --standalone as obfuscated deterrence rather than external-key encryption)
 ./my_program.protected --port 9000
 ```
 

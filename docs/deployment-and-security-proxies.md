@@ -1,8 +1,10 @@
 # Production Deployment, Reverse Proxies & Security Proxies
 
-[← Back to README](../README.md) · [CLI & Configuration](./cli-and-configuration.md)
+[← Back to README](../README.md) · [Beginner's Guide](./getting-started-beginners.md) · [Web & Web Components](./web-and-web-components.md) · [CLI & Configuration](./cli-and-configuration.md) · [Threat Model](./threat-model-and-benchmarks.md)
 
 `vibe-slayer serve` and `vibe-slayer serve-3d` embed a custom multi-threaded Rust HTTP/1.1 server designed to sit cleanly behind production reverse proxies (Nginx, Caddy, Cloudflare, AWS ALB) as well as intercepting security proxies (Caido, Burp Suite, mitmproxy) without spurious `400 Bad Request` errors.
+
+> **Concurrency Architecture Note:** `serve` and `serve-3d` use a blocking worker-thread pool (`--workers`, auto-sized to `32–64`). Always terminate TLS and client HTTP/2–HTTP/3 keep-alive connections at Nginx/Caddy/Cloudflare in front of `vibe-slayer`, and configure a short upstream keep-alive idle timeout (`--header-timeout-ms 2000`) so idle browser sockets do not pin worker threads.
 
 ---
 
@@ -79,7 +81,7 @@ app.example.com {
 When auditing a localhost Vibe-Slayer server through Caido or Burp Suite (`127.0.0.1:8080`):
 1. Launch Chrome with `--proxy-server=http://127.0.0.1:8080 --proxy-bypass-list="<-loopback>"` so loopback traffic actually traverses the proxy.
 2. Start `vibe-slayer serve` / `serve-3d` on a distinct port (e.g. `127.0.0.1:8790`).
-3. Because `vibe-slayer` decodes `Transfer-Encoding: chunked` POSTs and normalizes absolute-form proxy URIs, `/lease`, `/stream-init`, `/frame`, and `/camera` all succeed with `200 OK` through intercepting proxies without disabling security checks.
+3. Because `vibe-slayer` decodes `Transfer-Encoding: chunked` POSTs and normalizes absolute-form proxy URIs, `/__vibeslayer/lease`, `/__vibeslayer/stream-init`, `/__vibeslayer/frame`, and `/__vibeslayer/camera` all succeed with `200 OK` through intercepting proxies without disabling security checks.
 
 ---
 
@@ -105,7 +107,7 @@ When auditing a localhost Vibe-Slayer server through Caido or Burp Suite (`127.0
 | `403 TICKET_REPLAYED_OR_INVALID` | Single-use `<meta name="vs-ticket">` expired (`--ticket-ttl`), was replayed, or client IP changed behind an untrusted proxy | Pass `--trust-proxy <proxy-ip>` so real client IP stays consistent; increase `--ticket-ttl` if slow networks time out |
 | `403 STEALTH_ATTEST_REQUIRED` | `--anti-stealth strict` enabled on server, but client did not send `attest` | Ensure the bundle was built with `--anti-stealth strict` (or `--preset paranoid`) matching `serve` |
 | `403 STEALTH_ATTEST_INVALID` | SHA-256 attestation digest did not match `(ticket, clientPublicKeyHex, score, flags, platform)` | Verify no middleware mutated request JSON fields or ticket |
-| `403 STEALTH_BROWSER_DENIED` | Anti-detect browser invariants triggered (e.g. CloakBrowser) or OS headers contradicted (`Linux` UA + `Windows` Client Hint) | Expected for CloakBrowser/anti-detect browsers; if aggressive-farbling privacy browsers must be allowed, use `--anti-stealth balanced` |
+| `403 STEALTH_BROWSER_DENIED` | Anti-detect browser invariants triggered (e.g. CloakBrowser) or OS headers contradicted (`Linux` UA + `Windows` Client Hint) | Expected for anti-detect browsers; if multi-API privacy browsers (Brave Shields Aggressive / Tor / Firefox RFP) must be allowed, set `--anti-stealth off` |
 | `403 AUTOMATION_DENIED` | `navigator.webdriver`, CDP `Runtime.enable`, or `HeadlessChrome`/`Playwright`/`Puppeteer` UA detected | Expected for automated scrapers; use `--preset fast` or `--anti-cdp off --anti-stealth off` in CI test environments |
 | `429 RATE_LIMITED` | Client IP exceeded `--max-leases-per-min` | Raise `--max-leases-per-min` for shared corporate NAT / CI IPs, and ensure `--trust-proxy` is configured so all users don't share the reverse proxy's IP |
 | `Error: VS_RUNTIME_KEY_REQUIRED` | Hardened `.js`/`.mjs` module executed offline without a live ECDH lease binding `Symbol.for("vs_rt_<siteId>")` | Expected anti-ripper defense; serve the bundle through `vibe-slayer serve` |

@@ -991,7 +991,7 @@ fn handle_stream_init(
             return;
         };
         let now = unix_now_s();
-        if guard.len() > 256 {
+        if guard.len() >= state.max_sessions || guard.len() > 256 {
             guard.retain(|_, s| s.expires_at >= now);
         }
         if guard.len() >= state.max_sessions {
@@ -1032,9 +1032,9 @@ fn handle_stream_init(
     let mut resp = String::with_capacity(512 + ct_sess.len() * 2);
     resp.push_str("{\"ok\":true,\"sessionId\":\"");
     resp.push_str(&sid);
-    resp.push_str("\",\"origin\":\"");
-    resp.push_str(effective_origin);
-    resp.push_str("\",\"serverPublicKeyHex\":\"");
+    resp.push_str("\",\"origin\":");
+    resp.push_str(&crate::mini_json::to_json_compact(&crate::mini_json::JsonVal::Str(effective_origin.to_string())));
+    resp.push_str(",\"serverPublicKeyHex\":\"");
     write_hex_bytes(&srv_pub, &mut resp);
     resp.push_str("\",\"wrapIvHex\":\"");
     write_hex_bytes(&wrap_iv, &mut resp);

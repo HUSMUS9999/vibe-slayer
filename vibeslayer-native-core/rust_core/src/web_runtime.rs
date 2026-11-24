@@ -1787,7 +1787,7 @@ fn build_component_anti_stealth_guard_js(
     }
     let thresh = mode.score_threshold();
     format!(
-        r##"(()=>{{if(typeof document==="undefined")return;if(typeof navigator!=="undefined"&&navigator.webdriver)throw new Error("STEALTH_BROWSER_DENIED");let _s_{tag}=0;try{{const c=document.createElement("canvas");c.width=24;c.height=24;const x=c.getContext("2d");if(x){{x.fillStyle="#808080";x.fillRect(0,0,24,24);const d=x.getImageData(0,0,24,24).data,r0=d[0],g0=d[1],b0=d[2];for(let i=4;i<d.length;i+=4){{if(d[i]!==r0||d[i+1]!==g0||d[i+2]!==b0){{_s_{tag}+=2;break;}}}}}}}}catch(_){{}}try{{const c=document.createElement("canvas");c.width=24;c.height=24;const g=c.getContext("webgl2")||c.getContext("webgl");if(g){{g.clearColor(0.5,0.5,0.5,1);g.clear(g.COLOR_BUFFER_BIT);const p=new Uint8Array(24*24*4);g.readPixels(0,0,24,24,g.RGBA,g.UNSIGNED_BYTE,p);const r0=p[0],g0=p[1],b0=p[2];for(let i=4;i<p.length;i+=4){{if(p[i]!==r0||p[i+1]!==g0||p[i+2]!==b0){{_s_{tag}+=2;break;}}}}const ls=g.getExtension("WEBGL_lose_context");if(ls)ls.loseContext();}}}}catch(_){{}}const _rt=document.body||document.documentElement;try{{const dpr=(typeof window!=="undefined"&&window.devicePixelRatio)||1;if(Math.abs(dpr-Math.round(dpr))<1e-6&&_rt){{const dv=document.createElement("div");dv.style.cssText="position:fixed;left:10px;top:20px;width:100px;height:50px;margin:0;padding:0;border:0;visibility:hidden";_rt.appendChild(dv);const r=dv.getBoundingClientRect();dv.remove();if(Math.abs(r.left-10)>1e-3||Math.abs(r.top-20)>1e-3||Math.abs(r.width-100)>1e-3||Math.abs(r.height-50)>1e-3)_s_{tag}+=2;}}}}catch(_){{}}try{{const pl=String((typeof navigator!=="undefined"&&navigator.platform)||""),up=String((typeof navigator!=="undefined"&&navigator.userAgentData&&navigator.userAgentData.platform)||"");if(_rt&&(pl.startsWith("Win")||up==="Windows"||pl==="MacIntel"||up==="macOS")){{const sp=document.createElement("span");sp.textContent="mmmmmmmmmmlliWWWW1234567890";sp.style.cssText="position:fixed;left:-9999px;top:0;font-size:72px;white-space:nowrap;visibility:hidden";_rt.appendChild(sp);const mw=(f)=>{{sp.style.fontFamily=f;return sp.offsetWidth;}};const base=mw("monospace");const ls=(pl.startsWith("Win")||up==="Windows")?['"Segoe UI",monospace','"Tahoma",monospace','"Consolas",monospace','"Calibri",monospace']:['"Helvetica Neue",monospace','"Geneva",monospace','"Menlo",monospace'];let df=0;for(const f of ls){{if(mw(f)!==base)df++;}}sp.remove();if(df===0)_s_{tag}+=2;}}}}catch(_){{}}if(_s_{tag}>={thresh})throw new Error("STEALTH_BROWSER_DENIED");}})();"##
+        r##"(()=>{{if(typeof document==="undefined")return;if(typeof navigator!=="undefined"&&navigator.webdriver)throw new Error("STEALTH_BROWSER_DENIED");let _s_{tag}=0;try{{const c=document.createElement("canvas");c.width=24;c.height=24;const x=c.getContext("2d");if(x){{x.fillStyle="#808080";x.fillRect(0,0,24,24);const d=x.getImageData(0,0,24,24).data,r0=d[0],g0=d[1],b0=d[2];for(let i=4;i<d.length;i+=4){{if(d[i]!==r0||d[i+1]!==g0||d[i+2]!==b0){{_s_{tag}+=2;break;}}}}}}}}catch(_){{}}try{{const c=document.createElement("canvas");c.width=24;c.height=24;const g=c.getContext("webgl2")||c.getContext("webgl");if(g){{g.disable(g.DITHER);g.clearColor(128/255,128/255,128/255,1);g.clear(g.COLOR_BUFFER_BIT);const p=new Uint8Array(24*24*4);g.readPixels(0,0,24,24,g.RGBA,g.UNSIGNED_BYTE,p);const r0=p[0],g0=p[1],b0=p[2];for(let i=4;i<p.length;i+=4){{if(p[i]!==r0||p[i+1]!==g0||p[i+2]!==b0){{_s_{tag}+=2;break;}}}}const ls=g.getExtension("WEBGL_lose_context");if(ls)ls.loseContext();}}}}catch(_){{}}const _rt=document.documentElement||document.body;try{{const dpr=(typeof window!=="undefined"&&window.devicePixelRatio)||1;if(Math.abs(dpr-Math.round(dpr))<1e-6&&_rt){{const dv=document.createElement("div");dv.style.cssText="all:initial!important;position:fixed!important;left:10px!important;top:20px!important;width:100px!important;height:50px!important;margin:0!important;padding:0!important;border:0!important;transform:none!important;zoom:1!important;visibility:hidden!important";_rt.appendChild(dv);const cs=typeof getComputedStyle==="function"?getComputedStyle(_rt):null;const okCtx=!cs||((!cs.transform||cs.transform==="none")&&(!cs.zoom||cs.zoom==="1"));const r=dv.getBoundingClientRect();dv.remove();if(okCtx&&(r.width>0||r.height>0)&&(Math.abs(r.left-10)>1e-3||Math.abs(r.top-20)>1e-3||Math.abs(r.width-100)>1e-3||Math.abs(r.height-50)>1e-3))_s_{tag}+=2;}}}}catch(_){{}}try{{const pl=String((typeof navigator!=="undefined"&&navigator.platform)||""),up=String((typeof navigator!=="undefined"&&navigator.userAgentData&&navigator.userAgentData.platform)||"");if(_rt&&(pl.startsWith("Win")||up==="Windows"||pl==="MacIntel"||up==="macOS")){{const sp=document.createElement("span");sp.textContent="mmmmmmmmmmlliWWWW1234567890";sp.style.cssText="all:initial!important;position:fixed!important;left:-9999px!important;top:0!important;font-size:72px!important;white-space:nowrap!important;visibility:hidden!important";_rt.appendChild(sp);const mw=(f)=>{{sp.style.fontFamily=f;return sp.offsetWidth;}};const base=mw("monospace");const ls=(pl.startsWith("Win")||up==="Windows")?['"Segoe UI",monospace','"Tahoma",monospace','"Consolas",monospace','"Calibri",monospace']:['"Helvetica Neue",monospace','"Geneva",monospace','"Menlo",monospace'];let df=0;if(base>0){{for(const f of ls){{if(mw(f)!==base)df++;}}}}sp.remove();if(base>0&&df===0)_s_{tag}+=2;}}}}catch(_){{}}if(_s_{tag}>={thresh})throw new Error("STEALTH_BROWSER_DENIED");}})();"##
     ) + "\n"
 }
 
@@ -1941,7 +1941,7 @@ pub(crate) fn harden_js_advanced(
         if b == b'/' && regex_allowed_after(&prev_tok) {
             let start = i;
             i += 1;
-            let mut in_class = false;
+            let mut class_depth = 0usize;
             let mut closed = false;
             while i < n {
                 let c = bytes[i];
@@ -1957,16 +1957,16 @@ pub(crate) fn harden_js_advanced(
                     continue;
                 }
                 if c == b'[' {
-                    in_class = true;
+                    class_depth += 1;
                     i += 1;
                     continue;
                 }
-                if c == b']' {
-                    in_class = false;
+                if c == b']' && class_depth > 0 {
+                    class_depth -= 1;
                     i += 1;
                     continue;
                 }
-                if c == b'/' && !in_class {
+                if c == b'/' && class_depth == 0 {
                     i += 1;
                     while i < n && bytes[i].is_ascii_alphabetic() {
                         i += 1;
@@ -2035,10 +2035,12 @@ pub(crate) fn harden_js_advanced(
             let is_module_spec = matches!(
                 prev_tok.as_str(),
                 "id:from" | "id:import" | "id:export" | "id:as"
-            );
+            ) || (next_sig == Some(b'a') && src[i..].trim_start().starts_with("as ") && matches!(prev_tok.as_str(), "punct:{" | "punct:,"));
+            let is_import_attr_val = prev_tok == "punct::"
+                && matches!(inner, "css" | "json" | "bytes" | "webassembly");
             let is_obj_key = next_sig == Some(b':')
                 && matches!(prev_tok.as_str(), "punct:{" | "punct:,");
-            let is_method_or_field = matches!(next_sig, Some(b'(' | b'='))
+            let is_method_or_field = matches!(next_sig, Some(b'(' | b'=' | b';'))
                 && matches!(
                     prev_tok.as_str(),
                     "punct:{"
@@ -2052,7 +2054,7 @@ pub(crate) fn harden_js_advanced(
                         | "id:async"
                 );
 
-            let should_keep_raw = is_module_spec || is_obj_key || is_method_or_field;
+            let should_keep_raw = is_module_spec || is_import_attr_val || is_obj_key || is_method_or_field;
             if !should_keep_raw {
                 if let Some(decoded) = decode_js_string_literal(inner) {
                     if decoded.len() >= min_str_len.max(2) && decoded != "use strict" && decoded != "use asm" {
@@ -2111,7 +2113,12 @@ pub(crate) fn harden_js_advanced(
             }
             let word = &src[start..i];
             out.push_str(word);
-            prev_tok = format!("id:{word}");
+            // Property accesses (`.in`, `.new`, `.of`, `.return`, etc.) are never keywords
+            prev_tok = if prev_tok == "punct:." {
+                "prop".to_string()
+            } else {
+                format!("id:{word}")
+            };
             continue;
         }
 
@@ -2290,7 +2297,7 @@ pub(crate) fn build_tier4_anti_stealth_js(
     }
     let thresh = mode.score_threshold();
     let gl_probe = if include_webgl {
-        r#"try{const c=document.createElement("canvas");c.width=32;c.height=32;const g=c.getContext("webgl2")||c.getContext("webgl");if(g){g.clearColor(0.5,0.5,0.5,1);g.clear(g.COLOR_BUFFER_BIT);const p=new _U8(32*32*4);g.readPixels(0,0,32,32,g.RGBA,g.UNSIGNED_BYTE,p);const r0=p[0],g0=p[1],b0=p[2];for(let i=4;i<p.length;i+=4){if(p[i]!==r0||p[i+1]!==g0||p[i+2]!==b0){sc+=2;fl|=2;break;}}const ex=g.getExtension("WEBGL_debug_renderer_info"),ur=ex?String(g.getParameter(ex.UNMASKED_RENDERER_WEBGL)||""):"";const exs=g.getSupportedExtensions()||[];if((ur.includes("Direct3D11")||ur.includes("D3D11"))&&(ur.includes("NVIDIA")||ur.includes("RTX"))&&!exs.includes("KHR_parallel_shader_compile")&&exs.length<30){sc+=1;fl|=32;}const ls=g.getExtension("WEBGL_lose_context");if(ls)ls.loseContext();}}catch(_){}"#
+        r#"try{const c=document.createElement("canvas");c.width=32;c.height=32;const g=c.getContext("webgl2")||c.getContext("webgl");if(g){g.disable(g.DITHER);g.clearColor(128/255,128/255,128/255,1);g.clear(g.COLOR_BUFFER_BIT);const p=new _U8(32*32*4);g.readPixels(0,0,32,32,g.RGBA,g.UNSIGNED_BYTE,p);const r0=p[0],g0=p[1],b0=p[2];for(let i=4;i<p.length;i+=4){if(p[i]!==r0||p[i+1]!==g0||p[i+2]!==b0){sc+=2;fl|=2;break;}}const ex=g.getExtension("WEBGL_debug_renderer_info"),ur=ex?String(g.getParameter(ex.UNMASKED_RENDERER_WEBGL)||""):"";const exs=g.getSupportedExtensions()||[];if((ur.includes("Direct3D11")||ur.includes("D3D11"))&&(ur.includes("NVIDIA")||ur.includes("RTX"))&&!exs.includes("KHR_parallel_shader_compile")&&exs.length<30){sc+=1;fl|=32;}const ls=g.getExtension("WEBGL_lose_context");if(ls)ls.loseContext();}}catch(_){}"#
     } else {
         ""
     };
@@ -2309,12 +2316,15 @@ fn contains_ci(haystack: &str, needle: &str) -> bool {
 }
 
 fn os_family_from_ua(ua: &str) -> Option<&'static str> {
-    if contains_ci(ua, "Windows") {
-        Some("win")
-    } else if contains_ci(ua, "Mac OS X") || contains_ci(ua, "Macintosh") {
-        Some("mac")
-    } else if contains_ci(ua, "Android") {
+    // Check mobile platforms before desktop strings ("iPhone ... like Mac OS X", Android ODMs)
+    if contains_ci(ua, "Android") {
         Some("android")
+    } else if contains_ci(ua, "iPhone") || contains_ci(ua, "iPad") || contains_ci(ua, "iPod") {
+        Some("ios")
+    } else if contains_ci(ua, "Windows NT") || contains_ci(ua, "Win64") || contains_ci(ua, "WOW64") || contains_ci(ua, "Windows ") {
+        Some("win")
+    } else if contains_ci(ua, "Macintosh") || contains_ci(ua, "Mac OS X") {
+        Some("mac")
     } else if contains_ci(ua, "Linux") || contains_ci(ua, "X11") {
         Some("linux")
     } else {
@@ -2555,7 +2565,7 @@ fn build_hardened_browser_loader_js(
         build_tier4_anti_stealth_js(anti_stealth, true, "_s(55)", "_s(56)", "_s(19)");
 
     format!(
-        r#""use strict";(async()=>{{const _cs=document.currentScript;if(_cs)_cs.remove();const _m=[{mask_csv}],_t={table_js};let _fnStr=Function.prototype.toString,_JP=JSON,_TD=TextDecoder,_TE=TextEncoder,_U8=Uint8Array,_Mp=Map;try{{const _fr=document.createElement("iframe");_fr.style.display="none";const _rt=document.documentElement||document.body;if(_rt){{_rt.appendChild(_fr);const _rw=_fr.contentWindow;if(_rw&&_rw.Function&&_rw.JSON){{_fnStr=_rw.Function.prototype.toString;_JP=_rw.JSON;_TD=_rw.TextDecoder;_TE=_rw.TextEncoder;_U8=_rw.Uint8Array;_Mp=_rw.Map;}}_fr.remove();}}}}catch(_){{}}const _d=new _TD(),_e=new _TE(),_c=new _Mp(),_s=(i)=>{{if(_c.has(i))return _c.get(i);const a=_t[i],u=new _U8(a.length);for(let j=0;j<a.length;j++)u[j]=a[j]^_m[(i*7+j)&31]^((i*37+j)&255);const v=_d.decode(u);_c.set(i,v);return v;}};const _st=document.getElementById(_s(0)),_fail=(m)=>{{if(_st)_st.textContent=_s(1)+m;throw new Error(m);}},_chk=(fn)=>{{if(typeof fn!=="function"||!_fnStr.call(fn).includes(_s(31)))_fail(_s(32));}},_h2b=(h)=>{{const o=new _U8(h.length>>>1);for(let i=0;i<o.length;i++)o[i]=parseInt(h.slice(i*2,i*2+2),16);return o;}},_b2h=(b)=>{{const u=new _U8(b);let r="";for(let i=0;i<u.length;i++)r+=u[i].toString(16).padStart(2,"0");return r;}};const _gc=globalThis.crypto,_sb=_gc&&_gc.subtle;if(!_sb)_fail(_s(2));{chk_block}{anti_cdp_block}const _gk=_sb.generateKey.bind(_sb),_ek=_sb.exportKey.bind(_sb),_ik=_sb.importKey.bind(_sb),_db=_sb.deriveBits.bind(_sb),_dk=_sb.deriveKey.bind(_sb),_uk=_sb.unwrapKey.bind(_sb),_dc=_sb.decrypt.bind(_sb),_dg=_sb.digest.bind(_sb),_nf=globalThis.fetch.bind(globalThis),_Bl=globalThis.Blob,_cu=URL.createObjectURL.bind(URL),_ru=URL.revokeObjectURL.bind(URL),_DP=DOMParser;{anti_stealth_block}const _tm=document.querySelector(_s(3)),_tk=_tm?_tm.getAttribute(_s(4)):"";if(_tm)_tm.remove();if(!_tk||_tk===_s(5))_fail(_s(6));const _kp=await _gk({{name:_s(7),namedCurve:_s(8)}},false,[_s(9)]),_cp=await _ek(_s(10),_kp.publicKey),_cph=_b2h(_cp),_at=await _vsAt(_tk,_cph),_lb={{[_s(33)]:_cph,[_s(34)]:_tk}};if(_at)_lb[_s(57)]=_at;const _lr=await _nf(_s(11),{{method:_s(12),headers:{{[_s(13)]:_s(14)}},body:_JP.stringify(_lb)}}),_ls=_JP.parse(await _lr.text());if(!_lr.ok||!_ls[_s(46)])_fail(_ls[_s(47)]||_s(15));const _sp=await _ik(_s(10),_h2b(_ls[_s(35)]),{{name:_s(7),namedCurve:_s(8)}},false,[]),_sb2=await _db({{name:_s(7),public:_sp}},_kp.privateKey,256),_hb=await _ik(_s(10),_sb2,_s(16),false,[_s(17)]);new _U8(_sb2).fill(0);const _wi=_e.encode(_s(18)+_ls[_s(36)]),_wk=await _dk({{name:_s(16),hash:_s(19),salt:_e.encode(_ls[_s(37)]),info:_wi}},_hb,{{name:_s(20),length:256}},false,[_s(21)]),_ck=await _uk(_s(10),_h2b(_ls[_s(38)]),_wk,{{name:_s(20),iv:_h2b(_ls[_s(39)]),additionalData:_wi,tagLength:128}},{{name:_s(20),length:256}},false,[_s(22)]);if(!_ls[_s(40)]||!_ls[_s(41)])_fail(_s(24));const _mab=await _dc({{name:_s(20),iv:_h2b(_ls[_s(40)]),additionalData:_e.encode(_s(23)),tagLength:128}},_ck,_h2b(_ls[_s(41)])),_mu=new _U8(_mab),_mf=_JP.parse(_d.decode(_mu)),_fl=_mf[_s(42)]||{{}};_mu.fill(0);if(_mf[_s(52)]){{const _rkb=_h2b(_mf[_s(52)]),_rsy=Symbol.for(_s(53)+(_ls[_s(54)]||""));Object.defineProperty(globalThis,_rsy,{{value:_rkb,configurable:true,enumerable:false,writable:false}});window.addEventListener("pagehide",()=>{{try{{_rkb.fill(0);delete globalThis[_rsy];}}catch(_){{}}}},{{once:true}});}}async function _da(rp){{const cl=rp.replace(/^\/+/,""),mt=_fl[cl];if(!mt)return null;const r=await _nf("/"+mt[_s(43)]);if(!r.ok)_fail(cl);const rw=new _U8(await r.arrayBuffer()),ab=await _dc({{name:_s(20),iv:rw.slice(0,12),additionalData:_e.encode(_s(25)+cl),tagLength:128}},_ck,rw.slice(12));rw.fill(0);return{{bytes:new _U8(ab),mime:mt[_s(44)]||_s(26)}};}}window.fetch=async function(inp,ini){{const us=typeof inp==="string"?inp:inp&&inp.url?inp.url:"";try{{const u=new URL(us,window.location.origin);if(u.origin===window.location.origin){{const k=u.pathname.replace(/^\/+/,"");if(_fl[k]){{const a=await _da(k);return new Response(a.bytes,{{status:200,headers:{{[_s(13)]:a.mime}}}});}}}}}}catch(_){{}}return _nf(inp,ini);}};const _eh=await _da(_mf[_s(45)]||_s(27));if(!_eh)_fail(_s(27));const _ehStr=_d.decode(_eh.bytes);_eh.bytes.fill(0);const _ps=new _DP().parseFromString(_ehStr,_s(28)),_bu=new Set();for(const el of _ps.querySelectorAll(_s(29))){{const at=el.hasAttribute("src")?"src":"href",vl=el.getAttribute(at);if(!vl||/^(https?:|data:|blob:|\/__vibeslayer\/)/i.test(vl))continue;const rl=vl.replace(/^\.\//,"").replace(/^\/+/,"");if(!_fl[rl])continue;const a=await _da(rl),u=_cu(new _Bl([a.bytes],{{type:a.mime}}));a.bytes.fill(0);_bu.add(u);el.setAttribute(at,u);if(el.tagName!=="SCRIPT"){{el.addEventListener("load",()=>_ru(u),{{once:true}});el.addEventListener("error",()=>_ru(u),{{once:true}});}}}}document.title=_ps.title||document.title;const _sr=[];for(const sc of _ps.querySelectorAll("script")){{_sr.push({{src:sc.getAttribute("src"),type:sc.getAttribute("type"),text:sc.textContent}});sc.remove();}}document.head.replaceChildren(...Array.from(_ps.head.children).map((n)=>document.importNode(n,true)));document.body.replaceChildren(...Array.from(_ps.body.children).map((n)=>document.importNode(n,true)));for(const sc of _sr){{const nd=document.createElement("script");if(sc.type)nd.type=sc.type;if(sc.src){{nd.src=sc.src;if(_bu.has(sc.src)){{const u=sc.src;nd.addEventListener("load",()=>{{_ru(u);nd.remove();}},{{once:true}});nd.addEventListener("error",()=>{{_ru(u);nd.remove();}},{{once:true}});}}else{{nd.addEventListener("load",()=>nd.remove(),{{once:true}});nd.addEventListener("error",()=>nd.remove(),{{once:true}});}}}}else if(!sc.type||sc.type===_s(48)||sc.type===_s(49)||sc.type===_s(50)){{const u=_cu(new _Bl([sc.text],{{type:_s(49)}}));nd.src=u;nd.addEventListener("load",()=>{{_ru(u);nd.remove();}},{{once:true}});nd.addEventListener("error",()=>{{_ru(u);nd.remove();}},{{once:true}});}}else{{nd.textContent=sc.text;}}document.body.appendChild(nd);}}}})();
+        r#""use strict";(async()=>{{const _cs=document.currentScript;if(_cs)_cs.remove();const _m=[{mask_csv}],_t={table_js};let _fnStr=Function.prototype.toString,_JP=JSON,_TD=TextDecoder,_TE=TextEncoder,_U8=Uint8Array,_Mp=Map;try{{const _fr=document.createElement("iframe");_fr.style.display="none";const _rt=document.documentElement||document.body;if(_rt){{_rt.appendChild(_fr);const _rw=_fr.contentWindow;if(_rw&&_rw.Function&&_rw.JSON){{_fnStr=_rw.Function.prototype.toString;_JP=_rw.JSON;_TD=_rw.TextDecoder;_TE=_rw.TextEncoder;_U8=_rw.Uint8Array;_Mp=_rw.Map;}}_fr.remove();}}}}catch(_){{}}const _d=new _TD(),_e=new _TE(),_c=new _Mp(),_s=(i)=>{{if(_c.has(i))return _c.get(i);const a=_t[i],u=new _U8(a.length);for(let j=0;j<a.length;j++)u[j]=a[j]^_m[(i*7+j)&31]^((i*37+j)&255);const v=_d.decode(u);_c.set(i,v);return v;}};const _st=document.getElementById(_s(0)),_fail=(m)=>{{if(_st)_st.textContent=_s(1)+m;throw new Error(m);}},_chk=(fn)=>{{if(typeof fn!=="function"||!_fnStr.call(fn).includes(_s(31)))_fail(_s(32));}},_h2b=(h)=>{{const o=new _U8(h.length>>>1);for(let i=0;i<o.length;i++)o[i]=parseInt(h.slice(i*2,i*2+2),16);return o;}},_b2h=(b)=>{{const u=new _U8(b);let r="";for(let i=0;i<u.length;i++)r+=u[i].toString(16).padStart(2,"0");return r;}};const _gc=globalThis.crypto,_sb=_gc&&_gc.subtle;if(!_sb)_fail(_s(2));{chk_block}{anti_cdp_block}const _gk=_sb.generateKey.bind(_sb),_ek=_sb.exportKey.bind(_sb),_ik=_sb.importKey.bind(_sb),_db=_sb.deriveBits.bind(_sb),_dk=_sb.deriveKey.bind(_sb),_uk=_sb.unwrapKey.bind(_sb),_dc=_sb.decrypt.bind(_sb),_dg=_sb.digest.bind(_sb),_nf=globalThis.fetch.bind(globalThis),_Bl=globalThis.Blob,_cu=URL.createObjectURL.bind(URL),_ru=URL.revokeObjectURL.bind(URL),_DP=DOMParser;{anti_stealth_block}const _tm=document.querySelector(_s(3)),_tk=_tm?_tm.getAttribute(_s(4)):"";if(_tm)_tm.remove();if(!_tk||_tk===_s(5))_fail(_s(6));const _kp=await _gk({{name:_s(7),namedCurve:_s(8)}},false,[_s(9)]),_cp=await _ek(_s(10),_kp.publicKey),_cph=_b2h(_cp),_at=await _vsAt(_tk,_cph),_lb={{[_s(33)]:_cph,[_s(34)]:_tk}};if(_at)_lb[_s(57)]=_at;const _lr=await _nf(_s(11),{{method:_s(12),headers:{{[_s(13)]:_s(14)}},body:_JP.stringify(_lb)}}),_ls=_JP.parse(await _lr.text());if(!_lr.ok||!_ls[_s(46)])_fail(_ls[_s(47)]||_s(15));const _sp=await _ik(_s(10),_h2b(_ls[_s(35)]),{{name:_s(7),namedCurve:_s(8)}},false,[]),_sb2=await _db({{name:_s(7),public:_sp}},_kp.privateKey,256),_hb=await _ik(_s(10),_sb2,_s(16),false,[_s(17)]);new _U8(_sb2).fill(0);const _wi=_e.encode(_s(18)+_ls[_s(36)]),_wk=await _dk({{name:_s(16),hash:_s(19),salt:_e.encode(_ls[_s(37)]),info:_wi}},_hb,{{name:_s(20),length:256}},false,[_s(21)]),_ck=await _uk(_s(10),_h2b(_ls[_s(38)]),_wk,{{name:_s(20),iv:_h2b(_ls[_s(39)]),additionalData:_wi,tagLength:128}},{{name:_s(20),length:256}},false,[_s(22)]);if(!_ls[_s(40)]||!_ls[_s(41)])_fail(_s(24));const _mab=await _dc({{name:_s(20),iv:_h2b(_ls[_s(40)]),additionalData:_e.encode(_s(23)),tagLength:128}},_ck,_h2b(_ls[_s(41)])),_mu=new _U8(_mab),_mf=_JP.parse(_d.decode(_mu)),_fl=_mf[_s(42)]||{{}};_mu.fill(0);if(_mf[_s(52)]){{const _rkb=_h2b(_mf[_s(52)]),_rsy=Symbol.for(_s(53)+(_ls[_s(54)]||""));Object.defineProperty(globalThis,_rsy,{{value:_rkb,configurable:true,enumerable:false,writable:false}});window.addEventListener("pagehide",(ev)=>{{if(ev&&ev.persisted)return;try{{_rkb.fill(0);delete globalThis[_rsy];}}catch(_){{}}}},{{once:true}});}}async function _da(rp){{const cl=rp.split(/[?#]/)[0].replace(/^\/+/,""),mt=_fl[cl];if(!mt)return null;const r=await _nf("/"+mt[_s(43)]);if(!r.ok)_fail(cl);const rw=new _U8(await r.arrayBuffer()),ab=await _dc({{name:_s(20),iv:rw.slice(0,12),additionalData:_e.encode(_s(25)+cl),tagLength:128}},_ck,rw.slice(12));rw.fill(0);return{{bytes:new _U8(ab),mime:mt[_s(44)]||_s(26)}};}}window.fetch=async function(inp,ini){{const us=typeof inp==="string"?inp:inp&&inp.url?inp.url:"";try{{const u=new URL(us,window.location.origin);if(u.origin===window.location.origin){{const k=u.pathname.replace(/^\/+/,"");if(_fl[k]){{const a=await _da(k);return new Response(a.bytes,{{status:200,headers:{{[_s(13)]:a.mime}}}});}}}}}}catch(_){{}}return _nf(inp,ini);}};const _eh=await _da(_mf[_s(45)]||_s(27));if(!_eh)_fail(_s(27));const _ehStr=_d.decode(_eh.bytes);_eh.bytes.fill(0);const _ps=new _DP().parseFromString(_ehStr,_s(28)),_bu=new Set(),_els=[];for(const el of _ps.querySelectorAll(_s(29))){{const at=el.hasAttribute("src")?"src":"href",vl=el.getAttribute(at);if(!vl||/^(https?:|data:|blob:|\/__vibeslayer\/)/i.test(vl))continue;const rl=vl.split(/[?#]/)[0].replace(/^\.\//,"").replace(/^\/+/,"");if(!_fl[rl])continue;_els.push([el,at,rl]);}}await Promise.all(_els.map(async([el,at,rl])=>{{const a=await _da(rl),u=_cu(new _Bl([a.bytes],{{type:a.mime}}));a.bytes.fill(0);_bu.add(u);el.setAttribute(at,u);}}));document.title=_ps.title||document.title;const _sr=[];for(const sc of _ps.querySelectorAll("script")){{_sr.push({{src:sc.getAttribute("src"),type:sc.getAttribute("type"),text:sc.textContent}});sc.remove();}}document.head.replaceChildren(...Array.from(_ps.head.children).map((n)=>document.importNode(n,true)));document.body.replaceChildren(...Array.from(_ps.body.children).map((n)=>document.importNode(n,true)));for(const sc of _sr){{const nd=document.createElement("script");nd.async=false;if(sc.type)nd.type=sc.type;if(sc.src){{nd.src=sc.src;if(_bu.has(sc.src)){{const u=sc.src;nd.addEventListener("load",()=>{{_ru(u);nd.remove();}},{{once:true}});nd.addEventListener("error",()=>{{_ru(u);nd.remove();}},{{once:true}});}}else{{nd.addEventListener("load",()=>nd.remove(),{{once:true}});nd.addEventListener("error",()=>nd.remove(),{{once:true}});}}}}else if(!sc.type||sc.type===_s(48)||sc.type===_s(49)||sc.type===_s(50)){{const u=_cu(new _Bl([sc.text],{{type:_s(49)}}));nd.src=u;nd.addEventListener("load",()=>{{_ru(u);nd.remove();}},{{once:true}});nd.addEventListener("error",()=>{{_ru(u);nd.remove();}},{{once:true}});}}else{{nd.textContent=sc.text;}}document.body.appendChild(nd);}}}})();
 "#
     )
 }
@@ -2912,6 +2922,13 @@ impl HttpLeaseGuard {
         if let Some(&exp) = guard.used_tickets.get(nonce_hex) {
             if exp >= now {
                 return Err("TICKET_REPLAYED_OR_INVALID".to_string());
+            }
+        }
+        const MAX_TICKETS_PER_SHARD: usize = 16384;
+        if guard.used_tickets.len() >= MAX_TICKETS_PER_SHARD {
+            guard.used_tickets.retain(|_, exp| *exp >= now);
+            if guard.used_tickets.len() >= MAX_TICKETS_PER_SHARD {
+                return Err("SERVER_BUSY".to_string());
             }
         }
         guard
@@ -3331,6 +3348,13 @@ fn is_loopback_host(host_only: &str) -> bool {
         || host_only == "::1"
 }
 
+fn is_valid_rfc3986_host(h: &str) -> bool {
+    !h.is_empty()
+        && h.len() <= 255
+        && h.bytes()
+            .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'.' | b'-' | b':' | b'[' | b']'))
+}
+
 fn host_matches_bound(host_hdr: &str, bound: SocketAddr) -> bool {
     let (h_name, h_port_opt) = if let Some(rest) = host_hdr.strip_prefix('[') {
         if let Some((ip6, tail)) = rest.split_once(']') {
@@ -3357,11 +3381,7 @@ fn host_matches_bound(host_hdr: &str, bound: SocketAddr) -> bool {
         (host_hdr.to_string(), None)
     };
 
-    if h_name.is_empty()
-        || h_name.contains('/')
-        || h_name.contains('@')
-        || h_name.bytes().any(|b| b.is_ascii_whitespace())
-    {
+    if !is_valid_rfc3986_host(&h_name) {
         return false;
     }
 
@@ -3400,11 +3420,7 @@ pub(crate) fn validate_same_origin_proxy<'a>(
     if peer_trusted {
         if let (Some(origin_hdr), Some(xfh_raw)) = (origin, x_forwarded_host) {
             let xfh = xfh_raw.split(',').next().unwrap_or("").trim();
-            if !xfh.is_empty()
-                && !xfh.contains('/')
-                && !xfh.contains('@')
-                && !xfh.bytes().any(|b| b.is_ascii_whitespace())
-            {
+            if is_valid_rfc3986_host(xfh) {
                 let xfh_no80 = xfh.strip_suffix(":80").unwrap_or(xfh);
                 let xfh_no443 = xfh.strip_suffix(":443").unwrap_or(xfh);
                 if let Some(rest) = origin_hdr.strip_prefix("http://") {
@@ -3677,7 +3693,10 @@ fn read_chunked_body(
         let size_line = std::str::from_utf8(&buf[..crlf])
             .map_err(|_| (400, "Bad Request", "BAD_CHUNK_SIZE"))?;
         let hex_part = size_line.split(';').next().unwrap_or("").trim();
-        if hex_part.is_empty() || hex_part.len() > 8 {
+        if hex_part.is_empty()
+            || hex_part.len() > 8
+            || !hex_part.bytes().all(|b| b.is_ascii_hexdigit())
+        {
             return Err((400, "Bad Request", "BAD_CHUNK_SIZE"));
         }
         let chunk_sz = usize::from_str_radix(hex_part, 16)
@@ -3685,12 +3704,19 @@ fn read_chunked_body(
         buf.drain(..crlf + 2);
 
         if chunk_sz == 0 {
-            // Drain optional trailers up to final empty CRLF line
+            // Drain bounded optional trailers up to final empty CRLF line (DoS guard)
+            let mut trailer_lines = 0usize;
+            let mut trailer_bytes = 0usize;
             loop {
                 let t_crlf = ensure_line(stream, buf, &mut chunk)?;
                 buf.drain(..t_crlf + 2);
                 if t_crlf == 0 {
                     break;
+                }
+                trailer_lines += 1;
+                trailer_bytes += t_crlf;
+                if trailer_lines > 16 || trailer_bytes > 4096 {
+                    return Err((400, "Bad Request", "TRAILERS_TOO_LARGE"));
                 }
             }
             return Ok(out);
@@ -3766,13 +3792,25 @@ pub(crate) fn read_http_request_with_timeouts(
             .map_err(|_| (400, "Bad Request", "BAD_HTTP_UTF8"))?;
         let mut lines = hdr_str.split("\r\n");
         let req_line = lines.next().ok_or((400, "Bad Request", "BAD_REQUEST_LINE"))?;
-        let mut parts = req_line.split_whitespace();
+        if req_line.contains('\n') || req_line.contains('\r') {
+            return Err((400, "Bad Request", "BAD_REQUEST_LINE"));
+        }
+        let mut parts = req_line.split(' ');
         let method = parts
             .next()
+            .filter(|m| !m.is_empty() && m.bytes().all(|b| b.is_ascii_uppercase() || b == b'-'))
             .ok_or((400, "Bad Request", "BAD_REQUEST_LINE"))?
             .to_string();
-        let target = parts.next().ok_or((400, "Bad Request", "BAD_REQUEST_LINE"))?;
-        let version = parts.next().unwrap_or("HTTP/1.1");
+        let target = parts
+            .next()
+            .filter(|t| !t.is_empty())
+            .ok_or((400, "Bad Request", "BAD_REQUEST_LINE"))?;
+        let version = parts.next().ok_or((400, "Bad Request", "BAD_REQUEST_LINE"))?;
+        if parts.next().is_some()
+            || (!version.eq_ignore_ascii_case("HTTP/1.1") && !version.eq_ignore_ascii_case("HTTP/1.0"))
+        {
+            return Err((400, "Bad Request", "BAD_HTTP_VERSION"));
+        }
         let (path_only, target_auth) = normalize_request_target(target);
 
         let mut origin: Option<String> = None;
@@ -3794,10 +3832,19 @@ pub(crate) fn read_http_request_with_timeouts(
         let mut expect_100 = false;
 
         for line in lines {
+            if line.contains('\n') || line.contains('\r') {
+                return Err((400, "Bad Request", "BAD_HEADER_NEWLINE"));
+            }
             if let Some((k, v)) = line.split_once(':') {
-                let k = k.trim();
+                // RFC 9112 §5.1: reject whitespace/control chars in header field-name (obs-space smuggling)
+                if k.is_empty() || k.bytes().any(|b| b <= 0x20 || b >= 0x7f) {
+                    return Err((400, "Bad Request", "BAD_HEADER_NAME"));
+                }
                 let v = v.trim();
                 if k.eq_ignore_ascii_case("content-length") {
+                    if v.is_empty() || !v.bytes().all(|b| b.is_ascii_digit()) {
+                        return Err((400, "Bad Request", "BAD_CONTENT_LENGTH"));
+                    }
                     let parsed_cl = v
                         .parse::<usize>()
                         .map_err(|_| (400, "Bad Request", "BAD_CONTENT_LENGTH"))?;
@@ -3808,17 +3855,24 @@ pub(crate) fn read_http_request_with_timeouts(
                     }
                     content_len = Some(parsed_cl);
                 } else if k.eq_ignore_ascii_case("transfer-encoding") {
-                    has_te = true;
-                    if v.split(',').any(|t| t.trim().eq_ignore_ascii_case("chunked")) {
-                        is_chunked = true;
+                    if has_te || !v.eq_ignore_ascii_case("chunked") {
+                        return Err((400, "Bad Request", "UNSUPPORTED_TRANSFER_ENCODING"));
                     }
+                    has_te = true;
+                    is_chunked = true;
                 } else if k.eq_ignore_ascii_case("expect") {
                     if v.eq_ignore_ascii_case("100-continue") {
                         expect_100 = true;
                     }
                 } else if k.eq_ignore_ascii_case("origin") {
+                    if origin.is_some() {
+                        return Err((400, "Bad Request", "DUPLICATE_ORIGIN_HEADER"));
+                    }
                     origin = Some(v.to_string());
                 } else if k.eq_ignore_ascii_case("host") {
+                    if host.is_some() {
+                        return Err((400, "Bad Request", "DUPLICATE_HOST_HEADER"));
+                    }
                     host = Some(v.to_string());
                 } else if k.eq_ignore_ascii_case("x-forwarded-host") {
                     x_forwarded_host = Some(v.to_string());
@@ -3855,6 +3909,8 @@ pub(crate) fn read_http_request_with_timeouts(
                 } else if k.eq_ignore_ascii_case("connection") {
                     conn_val = Some(v);
                 }
+            } else {
+                return Err((400, "Bad Request", "MALFORMED_HEADER"));
             }
         }
 
@@ -3867,6 +3923,10 @@ pub(crate) fn read_http_request_with_timeouts(
         }
         if host.is_none() {
             host = target_auth;
+        }
+        // RFC 9112 §3.2: HTTP/1.1 requests MUST include a Host header
+        if version.eq_ignore_ascii_case("HTTP/1.1") && host.is_none() {
+            return Err((400, "Bad Request", "MISSING_HOST_HEADER"));
         }
         let keep_alive = if version.eq_ignore_ascii_case("HTTP/1.0") {
             conn_val.map_or(false, |v| v.eq_ignore_ascii_case("keep-alive"))
@@ -4113,7 +4173,7 @@ fn handle_client(mut stream: TcpStream, state: &ServerState) {
                 csp,
             );
         } else if method == "GET" && path_only.starts_with("/assets/") {
-            let name = path_only.trim_start_matches("/assets/");
+            let name = path_only.strip_prefix("/assets/").unwrap_or("");
             if !name.is_empty()
                 && !name.contains('/')
                 && !name.contains('\\')
@@ -4251,13 +4311,13 @@ fn handle_lease_request(
     );
 
     let mut resp = String::with_capacity(512 + (m_ct.len() + m_tag.len()) * 2);
-    resp.push_str("{\"ok\":true,\"siteId\":\"");
-    resp.push_str(&state.site_id);
-    resp.push_str("\",\"leaseId\":\"");
+    resp.push_str("{\"ok\":true,\"siteId\":");
+    resp.push_str(&crate::mini_json::to_json_compact(&JsonVal::Str(state.site_id.clone())));
+    resp.push_str(",\"leaseId\":\"");
     resp.push_str(&lease_id);
-    resp.push_str("\",\"origin\":\"");
-    resp.push_str(effective_origin);
-    resp.push_str("\",\"serverPublicKeyHex\":\"");
+    resp.push_str("\",\"origin\":");
+    resp.push_str(&crate::mini_json::to_json_compact(&JsonVal::Str(effective_origin.to_string())));
+    resp.push_str(",\"serverPublicKeyHex\":\"");
     write_hex_bytes(&srv_pub, &mut resp);
     resp.push_str("\",\"wrapIvHex\":\"");
     write_hex_bytes(&wrap_iv, &mut resp);
@@ -4431,9 +4491,9 @@ pub fn serve_website_with_params(
             let (lock, cv) = &*q;
             loop {
                 let stream = {
-                    let mut guard = lock.lock().unwrap();
+                    let mut guard = lock.lock().unwrap_or_else(|e| e.into_inner());
                     while guard.is_empty() {
-                        guard = cv.wait(guard).unwrap();
+                        guard = cv.wait(guard).unwrap_or_else(|e| e.into_inner());
                     }
                     guard.pop_front().unwrap()
                 };
@@ -4445,7 +4505,7 @@ pub fn serve_website_with_params(
     for conn in listener.incoming() {
         if let Ok(mut stream) = conn {
             let (lock, cv) = &*pool;
-            let mut guard = lock.lock().unwrap();
+            let mut guard = lock.lock().unwrap_or_else(|e| e.into_inner());
             if guard.len() >= MAX_PENDING_CONNS {
                 drop(guard);
                 let _ = stream.set_nonblocking(true);

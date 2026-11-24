@@ -1,6 +1,12 @@
 "use strict";
 
-const subtle = globalThis.crypto.subtle;
+function getSubtle() {
+  const s = globalThis.crypto?.subtle;
+  if (!s) {
+    throw new Error("WEBCRYPTO_UNAVAILABLE: WebCrypto subtle API requires HTTPS, localhost, or Node.js >= 20");
+  }
+  return s;
+}
 
 const ANTI_STEALTH_THRESHOLDS = Object.freeze({
   off: Infinity,
@@ -19,16 +25,17 @@ function parseAntiStealthMode(mode = "off") {
 function osFamilyFromStr(val) {
   const s = String(val || "").toLowerCase();
   if (!s) return null;
-  if (s.includes("win")) return "win";
-  if (s.includes("mac")) return "mac";
   if (s.includes("android")) return "android";
+  if (s.includes("iphone") || s.includes("ipad") || s.includes("ipod")) return "ios";
+  if (s.includes("windows") || s.startsWith("win") || s.includes("win64") || s.includes("wow64")) return "win";
+  if (s.includes("macintosh") || s.includes("mac os") || s.startsWith("mac") || s === "macos") return "mac";
   if (s.includes("linux") || s.includes("x11")) return "linux";
   return null;
 }
 
 async function sha256HexClient(text) {
   const bytes = new TextEncoder().encode(text);
-  const digest = await subtle.digest("SHA-256", bytes);
+  const digest = await getSubtle().digest("SHA-256", bytes);
   return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, "0")).join("");
 }
 
@@ -65,15 +72,17 @@ async function collectStealthAttestation({
     if (typeof navigator !== "undefined" && navigator.webdriver) {
       throw new Error("AUTOMATION_DENIED");
     }
-    let cdpHit = false;
-    try {
-      const orig = Error.prepareStackTrace;
-      Error.prepareStackTrace = () => { cdpHit = true; return ""; };
-      console.debug(new Error());
-      if (orig === undefined) delete Error.prepareStackTrace;
-      else Error.prepareStackTrace = orig;
-    } catch {}
-    if (cdpHit) throw new Error("AUTOMATION_DENIED");
+    if (m === "strict") {
+      let cdpHit = false;
+      try {
+        const orig = Error.prepareStackTrace;
+        Error.prepareStackTrace = () => { cdpHit = true; return ""; };
+        console.debug(new Error());
+        if (orig === undefined) delete Error.prepareStackTrace;
+        else Error.prepareStackTrace = orig;
+      } catch {}
+      if (cdpHit) throw new Error("AUTOMATION_DENIED");
+    }
 
     try {
       const c = document.createElement("canvas");
@@ -94,7 +103,8 @@ async function collectStealthAttestation({
       c.width = 32; c.height = 32;
       const g = c.getContext("webgl2") || c.getContext("webgl");
       if (g) {
-        g.clearColor(0.5, 0.5, 0.5, 1);
+        g.disable(g.DITHER);
+        g.clearColor(128 / 255, 128 / 255, 128 / 255, 1);
         g.clear(g.COLOR_BUFFER_BIT);
         const px = new Uint8Array(32 * 32 * 4);
         g.readPixels(0, 0, 32, 32, g.RGBA, g.UNSIGNED_BYTE, px);
@@ -258,14 +268,14 @@ async function verifyGrantEd25519Client(grant, authorityPublicKeySpkiB64) {
     throw new Error("MALFORMED_GRANT_TOKEN");
   }
   const [bodyB64, sigB64] = parts;
-  const verifyKey = await subtle.importKey(
+  const verifyKey = await getSubtle().importKey(
     "spki",
     Buffer.from(pubSpkiB64, "base64url"),
     { name: "Ed25519" },
     false,
     ["verify"]
   );
-  const valid = await subtle.verify(
+  const valid = await getSubtle().verify(
     { name: "Ed25519" },
     verifyKey,
     Buffer.from(sigB64, "base64url"),
@@ -285,8 +295,8 @@ async function verifyGrantEd25519Client(grant, authorityPublicKeySpkiB64) {
 }
 
 async function createBrowserEphemeralSession({ antiStealth = "off", ticket = "", telemetry = null } = {}) {
-  const kp = await subtle.generateKey({ name: "ECDH", namedCurve: "P-256" }, false, ["deriveBits"]);
-  const spki = Buffer.from(await subtle.exportKey("spki", kp.publicKey));
+  const kp = await getSubtle().generateKey({ name: "ECDH", namedCurve: "P-256" }, false, ["deriveBits"]);
+  const spki = Buffer.from(await getSubtle().exportKey("spki", kp.publicKey));
   const publicKeySpkiB64 = spki.toString("base64url");
   const attest = await collectStealthAttestation({
     mode: antiStealth,
@@ -316,7 +326,7 @@ async function unsealVspkClient({
   if (parseAntiStealthMode(antiStealth) !== "off") {
     await collectStealthAttestation({
       mode: antiStealth,
-      ticket: grant?.jti || "",
+      ticket: grant?.claims?.jti || grant?.jti || "",
       publicKey: session?.publicKeySpkiB64 || "",
       telemetry,
     });
@@ -349,19 +359,20 @@ async function unsealVspkClient({
     throw new Error("MALFORMED_GRANT_CLAIMS");
   }
 
-  const serverPub = await subtle.importKey(
+  const sub = getSubtle();
+  const serverPub = await sub.importKey(
     "spki",
     Buffer.from(claims.ecdh.serverPublicKeySpkiB64, "base64url"),
     { name: "ECDH", namedCurve: "P-256" },
     false,
     []
   );
-  const sharedBits = await subtle.deriveBits({ name: "ECDH", public: serverPub }, session.privateKey, 256);
-  const hkdfBase = await subtle.importKey("raw", sharedBits, "HKDF", false, ["deriveKey"]);
+  const sharedBits = await sub.deriveBits({ name: "ECDH", public: serverPub }, session.privateKey, 256);
+  const hkdfBase = await sub.importKey("raw", sharedBits, "HKDF", false, ["deriveKey"]);
   new Uint8Array(sharedBits).fill(0);
 
   const wrapInfo = Buffer.from(`VS_ECDH_WRAP_V1|${claims.prd}|${claims.aid}|${claims.org}`, "utf8");
-  const wrapKey = await subtle.deriveKey(
+  const wrapKey = await sub.deriveKey(
     { name: "HKDF", hash: "SHA-256", salt: Buffer.from(claims.jti, "utf8"), info: wrapInfo },
     hkdfBase,
     { name: "AES-GCM", length: 256 },
@@ -369,7 +380,7 @@ async function unsealVspkClient({
     ["unwrapKey"]
   );
 
-  const contentKey = await subtle.unwrapKey(
+  const contentKey = await sub.unwrapKey(
     "raw",
     Buffer.from(claims.ecdh.wrappedKeyWithTagB64, "base64url"),
     wrapKey,
@@ -385,7 +396,7 @@ async function unsealVspkClient({
   );
 
   const aad = Buffer.from(`VSPK1|${header.domain}|${header.assetId}|${header.origin}`, "utf8");
-  const plainAb = await subtle.decrypt(
+  const plainAb = await sub.decrypt(
     { name: "AES-GCM", iv, additionalData: aad, tagLength: 128 },
     contentKey,
     Buffer.concat([ciphertext, tag])

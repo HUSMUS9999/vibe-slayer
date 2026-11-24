@@ -1,6 +1,6 @@
 # CLI Reference & Configuration
 
-[← Back to README](../README.md)
+[← Back to README](../README.md) · [Beginner's Guide](./getting-started-beginners.md) · [Web & Web Components](./web-and-web-components.md) · [3D Shield](./3d-shield-and-stream.md) · [Native Binaries & SDKs](./native-binaries-and-sdks.md)
 
 `vibe-slayer` is a standalone, zero-dependency Rust binary (zero external crates, zero Node.js runtime). Every build and runtime command supports **one-flag security presets** (`--preset fast | balanced | paranoid`), **human-editable JSON config files** (`--config vibeslayer.config.json`), **environment variables**, and **per-flag CLI overrides** with strict fail-closed validation.
 
@@ -83,6 +83,9 @@ All four top-level sections (`shield3d`, `serve3d`, `website`, `serve`) can live
     "streamQuality": 86,
     "addr": "127.0.0.1:8790",
     "origin": null,
+    "keyFile": null,
+    "authSecret": null,
+    "authHmacKey": null,
     "title": null,
     "watermark": true,
     "watermarkStrength": 1.8,
@@ -116,6 +119,8 @@ All four top-level sections (`shield3d`, `serve3d`, `website`, `serve`) can live
   "serve": {
     "addr": "127.0.0.1:8080",
     "origin": null,
+    "authSecret": null,
+    "authHmacKey": null,
     "cspMode": "strict",
     "antiStealth": "strict",
     "ticketTtlSec": 20,
@@ -182,7 +187,7 @@ See the **[Beginner's Guide](./getting-started-beginners.md)** for copy-paste ex
 | `--js-bloat-kb` | `jsBloatKb` | `0..=512` | Polymorphic unreachable decoy state-machine size (KB) appended per hardened JS/MJS file |
 | `--anti-hook` | `antiHook` | `on` \| `off` | Native WebCrypto prototype tampering check in boot loader |
 | `--anti-cdp` | `antiCdp` | `on` \| `off` | Block `navigator.webdriver` and active CDP `Runtime.enable` / DevTools consoles before leasing |
-| `--anti-stealth` | `antiStealth` | `off` \| `balanced` \| `strict` | Tier-4 anti-CloakBrowser physics probes in loader (protects all Web Components pre-lease); when `--harden-js` is also enabled, embeds an inline synchronous self-defense guard inside every `.js`/`.mjs` Web Component |
+| `--anti-stealth` | `antiStealth` | `off` \| `balanced` \| `strict` | Tier-4 anti-stealth rendering & OS probes in loader (protects all Web Components pre-lease); when `--harden-js` is also enabled, embeds an inline synchronous self-defense guard inside every `.js`/`.mjs` Web Component |
 | `--title` | `title` | string (HTML-escaped) | Bootstrap `<title>` displayed prior to decryption |
 | `--keys`, `--registry`, `--no-gitignore`, `--json` | — | path / flag | Vault/registry location, `.gitignore` toggle, JSON output |
 
@@ -277,10 +282,10 @@ Supports the shared HTTP/security runtime flags (`--preset`, `--config`, `--addr
 
 | Command | Purpose |
 | :--- | :--- |
-| `pack` / `unseal` | Pack or unseal `VSPK2` containers (`HKDF-SHA256` + `ChaCha20-Poly1305`) |
-| `pack-v3` / `unseal-v3` | Pack or unseal headerless key-committing `VSPK3` (`CMT4` + `1024 B` padding) |
-| `cook-glb` / `unseal-glb-lease` / `trace-glb` | Low-level `VS3D` cooking and 1,024-chip watermark tracing |
+| `pack` / `unseal` *(with `--key` & `--in`)* | Pack or unseal low-level `VSPK2` containers (`HKDF-SHA256` + `ChaCha20-Poly1305`). Without `--key`/`--in`, `unseal <dir>` dispatches to high-level `VSPK3` auto-restore above |
+| `pack-v3` / `unseal-v3` | Pack or unseal headerless whole-file key-committing `VSPK3` (`CMT4` + `1024 B` padding) |
+| `cook-glb` / `unseal-glb-lease` / `trace-glb` | Low-level keyed `VS3D` coordinate-stream fingerprint cooking and 1,024-chip watermark tracing (use `shield-3d` for full glTF 2.0 mesh parsing) |
 | `embed-wm64` / `decode-wm64` | Low-level 64-bit `O(1)` BPSK coordinate watermarking |
-| `build-elf` / `build-elf-elite` / `build-elf-freestanding` / `wrap-elf` | Build hardened Linux x86-64 static-PIE ELF64 vaults and executable wrappers |
-| `homo-keygen` / `homo-encrypt` / `homo-eval` / `homo-decrypt` | Additively homomorphic integer computation over ciphertexts (no secret key on evaluator) |
+| `build-elf` / `build-elf-elite` / `build-elf-freestanding` / `wrap-elf` | Build hardened Linux x86-64 static-PIE ELF64 vaults (`--vault` `memfd_secret`) and executable wrappers (`wrap-elf` `memfd_create` + `execveat`; requires host `gcc` + `libc6-dev`) |
+| `homo-keygen` / `homo-encrypt` / `homo-eval` / `homo-decrypt` | **Experimental prototype**: leveled Ring-LWE BFV homomorphic evaluation (`add`/`sub`/`mul`/`quad`) using small educational parameters (`N=256`, `q=2^56`) — **not for production cryptographic confidentiality** |
 | `version` | Print binary version JSON (`{"version":"1.0.0-beta.3"}`) |

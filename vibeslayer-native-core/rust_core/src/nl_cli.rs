@@ -332,7 +332,9 @@ fn extract_output_and_targets(tokens: &[String]) -> (Vec<String>, Option<String>
                 j += 1;
                 nxt = clean_token(&tokens[j]);
             }
-            if looks_like_path(nxt) || nxt.contains('.') || nxt.contains('-') || nxt.contains('_') {
+            if !nxt.starts_with('-')
+                && (looks_like_path(nxt) || nxt.contains('.') || nxt.contains('_'))
+            {
                 if !matches!(
                     nxt.to_ascii_lowercase().as_str(),
                     "fast" | "balanced" | "paranoid" | "strict" | "stream" | "gpu"
@@ -343,7 +345,7 @@ fn extract_output_and_targets(tokens: &[String]) -> (Vec<String>, Option<String>
                 }
             }
         }
-        if looks_like_path(raw) {
+        if !raw.starts_with('-') && looks_like_path(raw) {
             targets.push(raw.to_string());
         }
         i += 1;
@@ -352,62 +354,90 @@ fn extract_output_and_targets(tokens: &[String]) -> (Vec<String>, Option<String>
 }
 
 fn detect_preset(low: &str) -> (&'static str, &'static str) {
-    if has_any(
+    let blocking_automation = has_any(
         low,
         &[
-            "fast",
-            "dev mode",
-            "local dev",
-            "development",
-            "playwright",
-            "cypress",
-            "ci test",
-            "lightweight",
-            "disable anti",
+            "block playwright",
+            "deny playwright",
+            "stop playwright",
+            "block puppeteer",
+            "block selenium",
+            "block cypress",
         ],
-    ) {
+    );
+    let wants_fast = !blocking_automation
+        && has_any(
+            low,
+            &[
+                "fast",
+                "dev mode",
+                "local dev",
+                "development",
+                "for playwright",
+                "allow playwright",
+                "playwright test",
+                "cypress",
+                "ci test",
+                "lightweight",
+                "disable anti",
+            ],
+        );
+    if wants_fast {
         ("fast", "Fast/dev preset selected for local testing or CI automation compatibility")
-    } else if has_any(
-        low,
-        &[
-            "paranoid",
-            "strict",
-            "maximum",
-            "max security",
-            "strongest",
-            "bulletproof",
-            "hardcore",
-            "cloakbrowser",
-            "cloak browser",
-            "anti-detect",
-            "antidetect",
-            "stealth browser",
-            "zero geometry",
-            "no geometry",
-            "without sending geometry",
-            "ai agent",
-            "vibe revers",
-            "harden js",
-            "obfuscat",
-        ],
-    ) {
+    } else if blocking_automation
+        || has_any(
+            low,
+            &[
+                "paranoid",
+                "strict",
+                "maximum",
+                "max security",
+                "strongest",
+                "bulletproof",
+                "hardcore",
+                "cloakbrowser",
+                "cloak browser",
+                "anti-detect",
+                "antidetect",
+                "stealth browser",
+                "zero geometry",
+                "no geometry",
+                "without sending geometry",
+                "ai agent",
+                "vibe revers",
+                "harden js",
+                "obfuscat",
+            ],
+        )
+    {
         if has_any(low, &["brave", "privacy browser", "librewolf", "balanced"]) {
             (
                 "balanced",
-                "Balanced preset selected to keep privacy-hardened browsers working while still blocking CloakBrowser",
+                "Balanced preset selected (score >= 4 anti-stealth threshold for higher privacy-browser tolerance)",
             )
         } else {
             (
                 "paranoid",
-                "Paranoid preset selected for maximum defense (anti-CloakBrowser strict, anti-CDP, JS rtKey hardening, zero-geometry 3D stream)",
+                "Paranoid preset selected for maximum defense (strict anti-stealth, anti-CDP, JS rtKey hardening, zero-geometry 3D stream)",
             )
         }
     } else {
         (
             "balanced",
-            "Balanced preset selected (strong default protection with zero false positives)",
+            "Balanced preset selected (strong default protection with zero false positives on clean Chrome/Firefox)",
         )
     }
+}
+
+fn infer_sibling_vsshield_key(dir: &str) -> Option<String> {
+    let trimmed = dir.trim_end_matches('/');
+    if let Some(stem) = trimmed.strip_suffix(".shielded") {
+        let candidate = format!("{stem}.vsshield.key");
+        if std::path::Path::new(&candidate).is_file() || trimmed.ends_with(".glb.shielded") {
+            return Some(candidate);
+        }
+    }
+    None
 }
 
 /// Translates a plain-English request into a concrete, explainable `vibe-slayer` CLI invocation.
@@ -415,7 +445,7 @@ pub fn compile_natural_language(sentence: &str) -> Result<NaturalPlan, String> {
     let trimmed = sentence.trim();
     if trimmed.is_empty() {
         return Err(
-            "Please describe what you want in plain English. Example:\n  ./vibe-slayer ask \"protect my website ./dist and block cloakbrowser\""
+            "Please describe what you want in plain English. Example:\n  ./vibe-slayer ask \"protect my website ./dist and block stealth browsers\""
                 .to_string(),
         );
     }
@@ -434,10 +464,23 @@ pub fn compile_natural_language(sentence: &str) -> Result<NaturalPlan, String> {
     let buyer = extract_buyer(&tokens);
     let (preset, preset_reason) = detect_preset(&low);
 
-    let behind_proxy = has_any(
+    let negated_proxy = has_any(
         &low,
-        &["nginx", "caddy", "cloudflare", "reverse proxy", "behind proxy", "trust proxy", "proxy"],
+        &["without proxy", "without a proxy", "no proxy", "block proxy", "deny proxy"],
     );
+    let behind_proxy = !negated_proxy
+        && has_any(
+            &low,
+            &[
+                "nginx",
+                "caddy",
+                "cloudflare",
+                "reverse proxy",
+                "behind proxy",
+                "behind a proxy",
+                "trust proxy",
+            ],
+        );
 
     // 1. Demo / walkthrough
     if has_any(&low, &["demo", "example", "try it", "walkthrough", "sandbox"])
@@ -519,8 +562,23 @@ pub fn compile_natural_language(sentence: &str) -> Result<NaturalPlan, String> {
         });
     }
 
-    // 5. Unseal / decrypt / restore
-    if has_any(&low, &["unseal", "decrypt", "restore", "recover", "unpack"]) {
+    // 5. Unseal / decrypt / restore (ignore negated phrases like "so nobody can decrypt" or "do not unseal")
+    let wants_protect_not_unseal = has_any(
+        &low,
+        &[
+            "protect ",
+            "encrypt ",
+            "seal ",
+            "nobody can decrypt",
+            "cannot decrypt",
+            "can't decrypt",
+            "do not unseal",
+            "don't unseal",
+        ],
+    );
+    if !wants_protect_not_unseal
+        && has_any(&low, &["unseal", "decrypt", "restore", "recover", "unpack"])
+    {
         let target = targets.first().cloned().ok_or_else(|| {
             "Tell me which protected file or folder to restore. Example:\n  ./vibe-slayer ask \"restore ./my-repo-protected to ./restored\"".to_string()
         })?;
@@ -563,32 +621,44 @@ pub fn compile_natural_language(sentence: &str) -> Result<NaturalPlan, String> {
     // 7. Trace leaked 3D stream frame or ripped geometry or WM64 positions
     if has_any(&low, &["trace", "find leaker", "identify buyer", "who leaked"]) {
         if let Some(rgb) = targets.iter().find(|p| p.to_ascii_lowercase().ends_with(".rgb")) {
+            let explicit_key = targets
+                .iter()
+                .find(|p| p.to_ascii_lowercase().ends_with(".key"))
+                .cloned();
             let dir = targets
                 .iter()
-                .find(|p| *p != rgb)
+                .find(|p| *p != rgb && explicit_key.as_deref() != Some(p.as_str()))
                 .cloned()
                 .ok_or_else(|| {
-                    "Include both the shielded 3D directory and the .rgb frame path. Example:\n  ./vibe-slayer ask \"trace leaked frame ./frame.rgb 960x640 from ./hero.shielded\"".to_string()
+                    "Include both the shielded 3D directory and the .rgb frame path. Example:\n  ./vibe-slayer ask \"trace leaked frame ./frame.rgb 960x640 from ./hero.glb.shielded\"".to_string()
                 })?;
+            let key_opt = explicit_key.or_else(|| infer_sibling_vsshield_key(&dir));
             let (w, h) = res_wh.unwrap_or((960, 640));
+            let mut argv = vec![
+                "trace-stream-frame".to_string(),
+                "--dir".to_string(),
+                dir,
+                "--rgb".to_string(),
+                rgb.clone(),
+                "--width".to_string(),
+                w.to_string(),
+                "--height".to_string(),
+                h.to_string(),
+            ];
+            let mut reasons = vec![
+                "Extracts the imperceptible post-JPEG 64-bit forensic buyer ID from raw RGB pixels".to_string(),
+            ];
+            if let Some(kf) = key_opt {
+                argv.push("--key-file".to_string());
+                argv.push(kf.clone());
+                reasons.push(format!("Uses external 3D master key at {kf}"));
+            }
             return Ok(NaturalPlan {
                 input: trimmed.to_string(),
                 intent: "trace-stream-frame",
                 goal: format!("Blind-decode the 64-bit buyer watermark from 2D stream frame {rgb} ({w}x{h})"),
-                argv: vec![
-                    "trace-stream-frame".to_string(),
-                    "--dir".to_string(),
-                    dir,
-                    "--rgb".to_string(),
-                    rgb.clone(),
-                    "--width".to_string(),
-                    w.to_string(),
-                    "--height".to_string(),
-                    h.to_string(),
-                ],
-                reasons: vec![
-                    "Extracts the imperceptible post-JPEG 64-bit forensic buyer ID from raw RGB pixels".to_string(),
-                ],
+                argv,
+                reasons,
                 next_command: None,
             });
         }
@@ -635,8 +705,30 @@ pub fn compile_natural_language(sentence: &str) -> Result<NaturalPlan, String> {
         });
     }
 
-    // 9. 3D Shield / Zero-Geometry Encrypted Stream
-    let is_3d = has_any(&low, &["3d", ".glb", "glb", "mesh", "geometry", "stream", "model"]);
+    // 9. 3D Shield / Zero-Geometry Encrypted Stream (skip when user clearly targets AI weights)
+    let is_ai_weights = has_any(
+        &low,
+        &[
+            ".safetensors",
+            ".onnx",
+            ".gguf",
+            ".ckpt",
+            "ai model",
+            "ml model",
+            "llm",
+            "weights",
+            "tensor",
+        ],
+    ) || targets.iter().any(|p| {
+        let lp = p.to_ascii_lowercase();
+        lp.ends_with(".safetensors")
+            || lp.ends_with(".onnx")
+            || lp.ends_with(".gguf")
+            || lp.ends_with(".pt")
+            || lp.ends_with(".ckpt")
+    });
+    let is_3d = !is_ai_weights
+        && has_any(&low, &["3d", ".glb", "glb", "mesh", "geometry", "stream", "model"]);
     if is_3d {
         let glb_target = targets
             .iter()
@@ -646,9 +738,18 @@ pub fn compile_natural_language(sentence: &str) -> Result<NaturalPlan, String> {
             && has_any(&low, &["serve", "host", "start", "launch", "viewer", "stream"]);
 
         if is_serve_3d {
-            let dir = targets.first().cloned().ok_or_else(|| {
-                "Tell me which shielded 3D directory to serve. Example:\n  ./vibe-slayer ask \"serve my 3d model ./hero.shielded on port 8790\"".to_string()
-            })?;
+            let explicit_key = targets
+                .iter()
+                .find(|p| p.to_ascii_lowercase().ends_with(".key"))
+                .cloned();
+            let dir = targets
+                .iter()
+                .find(|p| explicit_key.as_deref() != Some(p.as_str()))
+                .cloned()
+                .ok_or_else(|| {
+                    "Tell me which shielded 3D directory to serve. Example:\n  ./vibe-slayer ask \"serve my 3d model ./hero.glb.shielded on port 8790\"".to_string()
+                })?;
+            let key_opt = explicit_key.or_else(|| infer_sibling_vsshield_key(&dir));
             let mode = if has_any(&low, &["gpu", "webgl", "60 fps", "60fps"]) {
                 "gpu"
             } else if has_any(&low, &["stream", "zero geometry", "no geometry", "without sending geometry"])
@@ -684,6 +785,11 @@ pub fn compile_natural_language(sentence: &str) -> Result<NaturalPlan, String> {
                     "--mode gpu: native 60 FPS encrypted WebGL2 shader viewer with scrambled tiles & server-baked watermark".to_string()
                 },
             ];
+            if let Some(kf) = key_opt {
+                argv.push("--key-file".to_string());
+                argv.push(kf.clone());
+                reasons.push(format!("--key-file {kf}: loads the external 32-byte 3D master key"));
+            }
             if let Some((w, h)) = res_wh {
                 argv.push("--stream-width".to_string());
                 argv.push(w.to_string());
@@ -802,7 +908,7 @@ pub fn compile_natural_language(sentence: &str) -> Result<NaturalPlan, String> {
             argv.push("--anti-stealth".to_string());
             argv.push(st.to_string());
             reasons.push(format!(
-                "--anti-stealth {st}: enforces server-side CloakBrowser & OS-header attestation"
+                "--anti-stealth {st}: enforces server-side anti-detect / stealth browser & OS-header checks"
             ));
         }
         if behind_proxy {
@@ -857,10 +963,10 @@ pub fn compile_natural_language(sentence: &str) -> Result<NaturalPlan, String> {
             argv.push(st.to_string());
             if preset != "paranoid" {
                 argv.push("--harden-js".to_string());
-                reasons.push("--harden-js: embeds inline synchronous CloakBrowser self-defense guard inside every .js/.mjs Web Component".to_string());
+                reasons.push("--harden-js: embeds inline synchronous anti-stealth self-defense guard inside every .js/.mjs Web Component".to_string());
             }
             reasons.push(format!(
-                "--anti-stealth {st}: blocks CloakBrowser via 6 hardware/physics invariants before any lease or Custom Element mounts"
+                "--anti-stealth {st}: blocks anti-detect / stealth browsers (e.g. CloakBrowser) via 6 rendering & OS invariants before any lease or Custom Element mounts"
             ));
         }
 
@@ -904,7 +1010,10 @@ Examples you can try:\n\
         argv.push("-o".to_string());
         argv.push(dest);
     }
-    if has_any(&low, &["standalone", "without keys", "self-contained", "no keys file"]) {
+    let negated_standalone = has_any(&low, &["without standalone", "no standalone", "not standalone"]);
+    if !negated_standalone
+        && has_any(&low, &["standalone", "without keys", "self-contained", "no keys file"])
+    {
         argv.push("--standalone".to_string());
         reasons.push("--standalone: wrapped ELF executable runs directly without ./vibe-slayer run".to_string());
     }
@@ -1022,5 +1131,27 @@ mod tests {
         let p7 = compile_natural_language("show me a demo").unwrap();
         assert_eq!(p7.intent, "demo");
         assert_eq!(p7.argv, vec!["demo"]);
+
+        // Regression tests from multi-persona review
+        let p8 = compile_natural_language("protect my website ./dist and block playwright").unwrap();
+        assert_eq!(p8.intent, "website");
+        assert!(p8.argv.contains(&"paranoid".to_string()));
+
+        let p9 = compile_natural_language("protect my ai model ./weights.safetensors").unwrap();
+        assert_eq!(p9.intent, "protect");
+        assert!(p9.argv.contains(&"./weights.safetensors".to_string()));
+
+        let p10 = compile_natural_language("protect ./app so nobody can decrypt it").unwrap();
+        assert_eq!(p10.intent, "protect");
+
+        let p11 = compile_natural_language("serve my 3d model ./hero.glb.shielded on port 8790 without sending geometry").unwrap();
+        assert_eq!(p11.intent, "serve-3d");
+        assert!(p11.argv.contains(&"--key-file".to_string()));
+        assert!(p11.argv.contains(&"./hero.glb.vsshield.key".to_string()));
+
+        let p12 = compile_natural_language("trace leaked frame ./frame.rgb 960x640 from ./hero.glb.shielded").unwrap();
+        assert_eq!(p12.intent, "trace-stream-frame");
+        assert!(p12.argv.contains(&"--key-file".to_string()));
+        assert!(p12.argv.contains(&"./hero.glb.vsshield.key".to_string()));
     }
 }

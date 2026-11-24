@@ -239,21 +239,63 @@ pub fn resolve_registry_path(custom_reg: Option<&Path>) -> PathBuf {
 
 pub fn write_private_json(file_path: &Path, val: &JsonVal) -> Result<(), String> {
     if let Some(parent) = file_path.parent() {
-        fs::create_dir_all(parent).map_err(|e| e.to_string())?;
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::PermissionsExt;
-            let _ = fs::set_permissions(parent, fs::Permissions::from_mode(0o700));
+        if !parent.as_os_str().is_empty() {
+            fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+            #[cfg(unix)]
+            {
+                // Only tighten permissions on dedicated `.vibeslayer` key vaults,
+                // never arbitrary parent directories (such as a repo root or /tmp).
+                if parent.file_name().and_then(|n| n.to_str()) == Some(".vibeslayer") {
+                    use std::os::unix::fs::PermissionsExt;
+                    let _ = fs::set_permissions(parent, fs::Permissions::from_mode(0o700));
+                }
+            }
         }
     }
     let body = to_json_pretty(val);
-    fs::write(file_path, body.as_bytes()).map_err(|e| e.to_string())?;
     #[cfg(unix)]
     {
-        use std::os::unix::fs::PermissionsExt;
+        use std::io::Write;
+        use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
+        let mut f = fs::OpenOptions::new()
+            .create(true)
+            .truncate(true)
+            .write(true)
+            .mode(0o600)
+            .open(file_path)
+            .map_err(|e| e.to_string())?;
+        f.write_all(body.as_bytes()).map_err(|e| e.to_string())?;
         let _ = fs::set_permissions(file_path, fs::Permissions::from_mode(0o600));
     }
+    #[cfg(not(unix))]
+    {
+        fs::write(file_path, body.as_bytes()).map_err(|e| e.to_string())?;
+    }
     Ok(())
+}
+
+/// Safely joins an untrusted relative path from a manifest onto `base`,
+/// rejecting absolute paths, NUL bytes, drive prefixes, `.` and `..` traversal.
+fn safe_join_rel(base: &Path, rel: &str) -> Result<PathBuf, String> {
+    use std::path::Component;
+    if rel.is_empty() || rel.contains('\0') || rel.starts_with('/') || rel.starts_with('\\') {
+        return Err(format!("UNSAFE_MANIFEST_PATH: '{rel}'"));
+    }
+    let mut out = base.to_path_buf();
+    let mut count = 0usize;
+    for comp in Path::new(rel).components() {
+        match comp {
+            Component::Normal(part) => {
+                out.push(part);
+                count += 1;
+            }
+            _ => return Err(format!("UNSAFE_MANIFEST_PATH: '{rel}'")),
+        }
+    }
+    if count == 0 {
+        return Err(format!("UNSAFE_MANIFEST_PATH: '{rel}'"));
+    }
+    Ok(out)
 }
 
 fn make_executable(file_path: &Path) {
@@ -2034,10 +2076,9 @@ fn test_freestanding_elf(file_path: &Path, buf: &[u8], entry: Option<&JsonVal>) 
             if rc == 0 {
                 let parsed = parse_json(stdout_s.trim())?;
                 let dmp_zero = parsed.get("dumpable").and_then(|v| v.as_i64()) == Some(0);
-                let sec_ok = matches!(
-                    parsed.get("secretmem").and_then(|v| v.as_i64()),
-                    Some(0) | Some(1)
-                );
+                let sec_val = parsed.get("secretmem").and_then(|v| v.as_i64());
+                let sec_active = sec_val == Some(1);
+                let sec_fallback_ok = matches!(sec_val, Some(0) | Some(1));
                 let orig_sha = entry.and_then(|e| e.get("originalSha256")).and_then(|v| v.as_str());
                 let p_sha = parsed.get("payloadSha256").and_then(|v| v.as_str());
                 let sha_ok = match (orig_sha, p_sha) {
@@ -2045,7 +2086,8 @@ fn test_freestanding_elf(file_path: &Path, buf: &[u8], entry: Option<&JsonVal>) 
                     _ => true,
                 };
                 checks.push(("dumpableZero", JsonVal::Bool(dmp_zero)));
-                checks.push(("memfdSecretActive", JsonVal::Bool(sec_ok)));
+                checks.push(("secretMemoryProtected", JsonVal::Bool(sec_fallback_ok)));
+                checks.push(("memfdSecretSyscallUsed", JsonVal::Str(if sec_active { "memfd_secret".to_string() } else { "mmap_dontdump_fallback".to_string() })));
                 checks.push(("payloadSha256Match", JsonVal::Bool(sha_ok)));
             } else {
                 checks.push(("vaultExecOk", JsonVal::Bool(false)));
@@ -2231,7 +2273,7 @@ fn test_protected_dir_loaded(
                 let res = (|| -> Result<JsonVal, String> {
                     let out_rel = mf.get("outRelPath").and_then(|v| v.as_str()).unwrap_or("");
                     let engine = mf.get("engine").and_then(|v| v.as_str()).unwrap_or("vspk3");
-                    let f_path = abs_target.join(out_rel);
+                    let f_path = safe_join_rel(&abs_target, out_rel)?;
                     if !f_path.is_file() {
                         return Ok(JsonVal::obj(vec![
                             ("relPath", JsonVal::Str(out_rel.to_string())),
@@ -2726,7 +2768,7 @@ pub fn unseal_target(target_path: &Path, opts: &CliOpts) -> Result<JsonVal, Stri
                     if engine == "cook-glb-vs3d" {
                         return Ok(UnsealSlot::Ignore);
                     }
-                    let src = abs_target.join(out_rel);
+                    let src = safe_join_rel(&abs_target, out_rel)?;
                     if engine == "wrap-elf" || engine == "freestanding-vault" {
                         return Ok(UnsealSlot::Skip(JsonVal::obj(vec![
                             ("relPath", JsonVal::Str(rel.to_string())),
@@ -2738,7 +2780,7 @@ pub fn unseal_target(target_path: &Path, opts: &CliOpts) -> Result<JsonVal, Stri
                             ),
                         ])));
                     }
-                    let dst = dest_dir.join(rel);
+                    let dst = safe_join_rel(&dest_dir, rel)?;
                     if let Some(p) = dst.parent() {
                         fs::create_dir_all(p).map_err(|e| e.to_string())?;
                     }
@@ -3576,6 +3618,9 @@ fn parse_cli_flags(args: &[String]) -> Result<(CliOpts, Vec<String>), String> {
                 opts.json = true;
                 i += 1;
             }
+            _ if a.starts_with('-') => {
+                return Err(format!("Unknown or incomplete CLI flag: '{a}'"));
+            }
             _ => {
                 positionals.push(args[i].clone());
                 i += 1;
@@ -3943,7 +3988,11 @@ pub fn run_beginner_subcommand(cmd: &str, rest: &[String]) -> Result<i32, (i32, 
             );
             println!("[+] Keys saved (0600, gitignored): {kf}");
             println!("\nStart the zero-Node live runtime server:");
-            println!("  ./vibe-slayer serve {od:?} --addr 127.0.0.1:8080");
+            println!(
+                "  ./vibe-slayer serve {od:?} --preset {} --anti-stealth {} --addr 127.0.0.1:8080",
+                wparams.preset.as_str(),
+                wparams.anti_stealth.as_str()
+            );
             Ok(0)
         }
         "serve" => {

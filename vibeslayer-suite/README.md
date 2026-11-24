@@ -23,19 +23,19 @@ End-to-end multi-platform protection suite for **client-downloaded assets & loca
 
 ---
 
-## 2. Measured Head-to-Head Benchmark: `vibeslayer-suite v0.7.0-beta.2` vs. `BLA v3.2.1` (`--intensity bankrupt`)
+## 2. Measured Footprint & Unseal Latency (`vibeslayer-suite v0.8.0-beta.2`)
 
-Measured on identical raw unprotected inputs (`BENCHMARK_V070_RESULTS.json`):
+Measured across all 7 product engines on identical raw unprotected inputs (`npm run bench --prefix vibeslayer-suite`). For head-to-head comparisons against public tools (`esbuild`, `terser`, `javascript-obfuscator`, `js-confuser`, `strip`, `UPX`, `OpenSSL`), see [`../benchmarks/results.json`](../benchmarks/results.json) and [Vision & Benchmarks](../docs/vision-and-benchmarks.md).
 
-| Product Line | Raw Size | `BLA v3.2.1` (`bankrupt`) Output & Security | `vibeslayer-suite v0.7.0-beta.2` Output & Security |
+| Product Line | Raw Size | Sealed Output & Measured Latency | Security Properties |
 | :--- | ---: | :--- | :--- |
-| **1. Web (`@vibeslayer/web`)** | `116 B` | `130,098 B` (**`1,121.5×` bloat**); self-contained JS chaff | **`233 B` (`2.01×`)**; `AES-256-GCM` + `ECDH P-256` (`extractable: false`), `2.46 ms` cold unseal |
-| **2. WASM (`@vibeslayer/wasm`)** | `100 B` | `6,880,116 B` (**`68,801×` bloat**); `\0asm` exposed (`true`); `9.16 ms` instantiate | **`220 B` (`2.20×`, `31,273×` smaller)**; `\0asm` exposed: **`false`**; `0.97 ms` unseal+instantiate |
-| **3. 3D Spatial (`@vibeslayer/spatial-3d`)** | `581,260 B` | ❌ **Unsupported (`rc=1`)** | **`749,679 B` (`1.29×`)**; `0` raw chunks exposed (`7.9998` bits/B entropy); `4.71 ms` unseal; `0` frame ops; **`100%` watermark trace** |
-| **4. Native Binary (`@vibeslayer/native`)** | `15,992 B` | `1,180,819 B` (`73.84×` bloat); **`.rodata` secret left in plaintext (`true`)** | **`25,656 B` (`1.60×`)**; `.rodata` exposed: **`false`** (`7.94` bits/B `.vsblob`); live `.text` SHA-256 + `PR_SET_DUMPABLE=0`; `2.01 ms` |
-| **5. Desktop (`@vibeslayer/desktop`)** | `67 B` rules | In-process JS chaff; exposed to Renderer DevTools | **`649 B` `Ed25519` `.vsasar`** + native ELF64 & Win64 PE64 enclave sidecars (`PR_SET_DUMPABLE=0`, `0.095 ms` IPC) |
-| **6. Mobile (`@vibeslayer/mobile`)** | `44 B` shader | `1,188,883 B` `.so` chaff; **no APK cert cryptographic binding (`false`)** | **`24,056 B` `libvsmobile.so`** + `143 B` `.vsmb`; APK cert HKDF+ChaCha20-Poly1305 bound (`1.30 ms`) |
-| **7. Data & AI (`@vibeslayer/data-ai`)** | `262,231 B` | `272,184 B`; **raw FP32 weights left 100% plaintext (`true`)** | **`262,303 B` (`1.0003×`, `+72 B`)**; `O(1)` 64 KiB chunk unseal (`1.45 ms`); raw weights exposed: **`false`** (`7.9992` bits/B) |
+| **1. Web (`@vibeslayer/web`)** | `116 B` | **`233 B` (`2.01×`)** · `2.46 ms` cold unseal | `AES-256-GCM` + non-extractable WebCrypto `ECDH P-256` |
+| **2. WASM (`@vibeslayer/wasm`)** | `100 B` | **`220 B` (`2.20×`)** · `0.97 ms` unseal+instantiate | `\0asm` header hidden (`false`); ABI preserved by default |
+| **3. 3D Spatial (`@vibeslayer/spatial-3d`)** | `581,260 B` | **`749,679 B` (`1.29×`)** · `4.71 ms` unseal | `0` raw chunks exposed (`7.9998` bits/B); `0` frame ops; 1024-chip watermark |
+| **4. Native Binary (`@vibeslayer/native`)** | `15,992 B` | **`25,656 B` (`1.60×`)** · `2.01 ms` cold start | `.rodata` encrypted (`7.94` bits/B `.vsblob`); live `.text` SHA-256 + `PR_SET_DUMPABLE=0` |
+| **5. Desktop (`@vibeslayer/desktop`)** | `67 B` rules | **`649 B` `.vsasar`** · `0.095 ms` IPC | `Ed25519`-signed bundle + native out-of-process enclave sidecar (`PR_SET_DUMPABLE=0`) |
+| **6. Mobile (`@vibeslayer/mobile`)** | `44 B` shader | **`24,056 B` `libvsmobile.so`** + `143 B` `.vsmb` · `1.30 ms` | APK signing-cert HKDF + `ChaCha20-Poly1305` binding |
+| **7. Data & AI (`@vibeslayer/data-ai`)** | `262,231 B` | **`262,303 B` (`1.0003×`, `+72 B`)** · `1.45 ms` chunk unseal | Real `O(1)` 64 KiB random-access `VSRA` `ChaCha20-Poly1305` chunks; raw FP32 hidden |
 
 ---
 

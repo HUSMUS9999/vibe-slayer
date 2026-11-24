@@ -1654,7 +1654,7 @@ fn handle_3d_session_post(
             return;
         };
         let now = unix_now_3d();
-        if guard.len() > 256 {
+        if guard.len() >= state.max_sessions || guard.len() > 256 {
             guard.retain(|_, s| s.expires_at >= now);
         }
         if guard.len() >= state.max_sessions {
@@ -1712,13 +1712,13 @@ fn handle_3d_session_post(
     secure_zero(&mut asset_key);
 
     let mut resp = String::with_capacity(640 + ct_sess.len() * 2);
-    resp.push_str("{\"ok\":true,\"assetId\":\"");
-    resp.push_str(&state.asset_id);
-    resp.push_str("\",\"sessionId\":\"");
+    resp.push_str("{\"ok\":true,\"assetId\":");
+    resp.push_str(&crate::mini_json::to_json_compact(&JsonVal::Str(state.asset_id.clone())));
+    resp.push_str(",\"sessionId\":\"");
     resp.push_str(&session_id);
-    resp.push_str("\",\"origin\":\"");
-    resp.push_str(effective_origin);
-    resp.push_str("\",\"serverPublicKeyHex\":\"");
+    resp.push_str("\",\"origin\":");
+    resp.push_str(&crate::mini_json::to_json_compact(&JsonVal::Str(effective_origin.to_string())));
+    resp.push_str(",\"serverPublicKeyHex\":\"");
     write_hex_bytes(&srv_pub, &mut resp);
     resp.push_str("\",\"wrapIvHex\":\"");
     write_hex_bytes(&wrap_iv, &mut resp);

@@ -205,14 +205,15 @@ pub fn unseal_vspk3_owned(
 
     let info = encode_canonical_vspk3_info(domain, asset_id, context);
     let (mut enc_key, mut cmt_key) = derive_vspk3_subkeys(master_key, &salt, &info);
-    let expected_cmt4 = compute_vspk3_cmt4(&cmt_key, &nonce, &info);
+    let mut expected_cmt4 = compute_vspk3_cmt4(&cmt_key, &nonce, &info);
     secure_zero(&mut cmt_key);
 
     let mut diff = 0u8;
     for i in 0..32 {
         diff |= cmt4[i] ^ expected_cmt4[i];
     }
-    if diff != 0 {
+    secure_zero(&mut expected_cmt4);
+    if std::hint::black_box(diff) != 0 {
         secure_zero(&mut enc_key);
         return Err("CMT4_COMMITMENT_FAILED".to_string());
     }

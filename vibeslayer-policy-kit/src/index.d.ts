@@ -55,7 +55,19 @@ export interface PolicyConfig {
   actions: Record<string, ActionDefinition>;
 }
 
+export declare const CONFIG: Readonly<Record<string, unknown>>;
 export declare function definePolicy(config: PolicyConfig): Readonly<PolicyConfig>;
+export declare function validateActionParams(
+  paramRules: Record<string, ParamRule>,
+  candidate: unknown
+): Record<string, unknown>;
+export declare function verifyStealthRequest(opts: {
+  mode?: AntiStealthMode;
+  headers?: Record<string, unknown>;
+  attest?: StealthAttestation | null;
+  actionName?: string;
+  origin?: string;
+}): void;
 export declare function buildBoundingBoxPreviewGlb(
   sourceGlbBytes: Buffer | Uint8Array,
   opts?: { generator?: string; nodeName?: string }

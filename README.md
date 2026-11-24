@@ -20,7 +20,13 @@
   <a href="LICENSE"><img src="assets/badges/license.svg" alt="license: MIT" /></a>
 </p>
 
-**Vibe-Slayer** compiles to a single standalone Rust + C99 binary with zero external crates or runtime dependencies — replacing fragile static obfuscation with real cryptographic and physical boundaries for live websites & Web Components, interactive 3D models, native Linux ELF64 binaries, AI model weights, and source repositories.
+**Vibe-Slayer** compiles to a single standalone Rust + C99 binary with zero external crates or runtime dependencies for protecting live websites & Web Components, interactive 3D models, native Linux ELF64 binaries, AI model weights, and source repositories.
+
+## Problem & Solution
+
+**Problem:** Static obfuscators were built to slow down human readers, not AI reversing agents, CDP scrapers, or WebGL rippers. Heavy AST transforms inflate bundles by 10×–100× while leaving JavaScript callable offline via a one-line import, `.glb` meshes naked in browser RAM, `.rodata` secrets readable on disk, and AI weights stored in plaintext.
+
+**Solution:** Vibe-Slayer replaces static obscurity with real cryptographic and physical boundaries in one standalone binary: `AES-256-GCM` web delivery bound to non-extractable `ECDH P-256` leases (`0` offline bits), zero-geometry encrypted 3D pixel streaming (`0` vertices, UVs, or WebGL sent to clients), static-PIE `ELF64` wrappers (`Intel CET` + `memfd_secret`), and `O(1)` 64 KiB random-access AEAD vaults for AI weights. See **[Vision, Architecture & Benchmarks](docs/vision-and-benchmarks.md)** for full methodology.
 
 ## Features
 
@@ -85,18 +91,6 @@ No flags to memorize — preview safely (`dry-run`) with `explain`, or run immed
 # Editable JSON Configuration Template
 ./vibe-slayer init-config --preset paranoid -o vibeslayer.config.json
 ```
-
----
-
-## Why Vibe-Slayer?
-
-Traditional obfuscators were built to slow down human reverse engineers reading static code. Against **AI reversing agents**, **CDP scrapers**, **WebGL rippers**, and **C++-patched anti-detect browsers**, static obfuscation fails:
-
-- **Static chaff bloats users, not attackers** — Classic obfuscators inflate a `100 B` WebAssembly module to `6.88 MB` (`68,801x`) or a `16 KB` binary to `1.18 MB` while leaving `.rodata` secrets, `\0asm` headers, or raw AI weights readable at rest, and an LLM agent dumps plaintext via a 15-line runtime hook in seconds.
-- **3D assets & Web Components ship naked** — Standard `.glb` viewers stream complete meshes and textures straight into browser RAM/WebGL; static hosts serve raw source to `curl` and Playwright.
-- **Anti-detect browsers bypass naive bot checks** — Hardened Chromium forks strip `navigator.webdriver` and CDP leaks directly inside C++.
-
-Vibe-Slayer replaces obscurity with standard **256-bit AEAD** (`AES-256-GCM`, headerless `VSPK3` `CMT4` + `ChaCha20-Poly1305`), **zero-geometry 3D pixel streaming**, and **6 hardware/physics browser integrity invariants**. Read the full **[Vision, Architecture & Benchmarks](docs/vision-and-benchmarks.md)**.
 
 ---
 

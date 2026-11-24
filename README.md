@@ -3,11 +3,11 @@
 </p>
 
 <p align="center">
-  <a href="#architecture--packages"><img src="https://img.shields.io/badge/core-Rust%20%2B%20C99%20(0%20crates)-orange" alt="Native Core" /></a>
-  <a href="docs/getting-started-beginners.md"><img src="https://img.shields.io/badge/UX-Plain--English%20CLI%20(ask)-purple" alt="Natural Language CLI" /></a>
-  <a href="docs/web-and-web-components.md"><img src="https://img.shields.io/badge/runtime-Zero%20Node.js-brightgreen" alt="Zero Node Runtime" /></a>
-  <a href="docs/web-and-web-components.md#5-live-verification-cloakbrowser-146-vs-chrome-158"><img src="https://img.shields.io/badge/anti--stealth-CloakBrowser%20Denied-red" alt="Anti-CloakBrowser" /></a>
-  <a href="docs/deployment-and-security-proxies.md"><img src="https://img.shields.io/badge/HTTP%2F1.1-RFC%209112%20Proxy%20Ready-blue" alt="RFC 9112 Proxy Ready" /></a>
+  <a href="#architecture--packages"><img src="assets/badges/core.svg" alt="Core: Rust + C99 (0 Crates)" /></a>
+  <a href="docs/getting-started-beginners.md"><img src="assets/badges/nl-cli.svg" alt="CLI: Plain-English (ask)" /></a>
+  <a href="docs/web-and-web-components.md"><img src="assets/badges/runtime.svg" alt="Runtime: Zero Node.js" /></a>
+  <a href="docs/web-and-web-components.md#5-live-verification-cloakbrowser-146-vs-chrome-158"><img src="assets/badges/anti-stealth.svg" alt="Anti-Stealth: CloakBrowser Denied" /></a>
+  <a href="docs/deployment-and-security-proxies.md"><img src="assets/badges/proxy.svg" alt="HTTP/1.1: RFC 9112 Proxy Ready" /></a>
 </p>
 
 **Zero-dependency compiled Rust + C99 protection platform for repositories, native Linux binaries, live websites & Web Components, AI weights, and interactive 3D models — built for the era of AI reversing agents ("vibe reversing") and anti-detect browsers.**

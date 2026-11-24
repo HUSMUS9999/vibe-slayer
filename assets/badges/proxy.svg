@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="270" height="24" viewBox="0 0 270 24" role="img" aria-label="HTTP/1.1: RFC 9112 PROXY READY">
+  <defs>
+    <linearGradient id="iceBg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#0A1929"/>
+      <stop offset="100%" stop-color="#071A33"/>
+    </linearGradient>
+    <clipPath id="round">
+      <rect width="270" height="24" rx="5"/>
+    </clipPath>
+  </defs>
+  <g clip-path="url(#round)">
+    <rect width="86" height="24" fill="#000000"/>
+    <rect x="86" width="184" height="24" fill="url(#iceBg)"/>
+    <rect x="86" width="1" height="24" fill="#60A5FA" fill-opacity="0.5"/>
+  </g>
+  <rect x="0.5" y="0.5" width="269" height="23" rx="4.5" fill="none" stroke="#60A5FA" stroke-opacity="0.6" stroke-width="1"/>
+  <g font-family="DejaVu Sans,Verdana,Geneva,sans-serif" font-size="9.8" font-weight="700" text-anchor="middle" letter-spacing="0.35">
+    <text x="43.0" y="15.3" fill="#94A3B8">HTTP/1.1</text>
+    <text x="178.0" y="15.3" fill="#DBEAFE">RFC 9112 PROXY READY</text>
+  </g>
+</svg>

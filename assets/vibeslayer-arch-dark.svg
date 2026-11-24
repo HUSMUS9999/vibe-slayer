@@ -1,236 +1,308 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="980" height="596" viewBox="0 0 980 596" role="img" aria-label="Vibe-Slayer Multi-Domain Protection Architecture">
+<svg xmlns="http://www.w3.org/2000/svg" width="1040" height="620" viewBox="0 0 1040 620" role="img" aria-label="Vibe-Slayer Protection Architecture and Trust Boundaries">
   <defs>
-    <marker id="arr-dark" viewBox="0 0 10 10" refX="7.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto">
-      <path d="M 1.5 2 L 7.5 5 L 1.5 8" fill="none" stroke="#5A6F8A" stroke-width="1.55" stroke-linecap="round" stroke-linejoin="round"/>
+    <!-- Subtle precision CAD dot pattern -->
+    <pattern id="cad-dots" width="20" height="20" patternUnits="userSpaceOnUse">
+      <circle cx="10" cy="10" r="0.65" fill="#1E293B" opacity="0.42"/>
+    </pattern>
+
+    <!-- Solid precision triangle markers -->
+    <marker id="arr-art" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M 0.5 1 L 7.2 4 L 0.5 7 Z" fill="#64748B"/>
     </marker>
-    <marker id="arr-acc-dark" viewBox="0 0 10 10" refX="7.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto">
-      <path d="M 1.5 2 L 7.5 5 L 1.5 8" fill="none" stroke="#38BDF8" stroke-width="1.55" stroke-linecap="round" stroke-linejoin="round"/>
+    <marker id="arr-enc" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M 0.5 1 L 7.2 4 L 0.5 7 Z" fill="#38BDF8"/>
     </marker>
-    <marker id="arr-out-dark" viewBox="0 0 10 10" refX="7.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto">
-      <path d="M 1.5 2 L 7.5 5 L 1.5 8" fill="none" stroke="#34D399" stroke-width="1.55" stroke-linecap="round" stroke-linejoin="round"/>
+    <marker id="arr-enc-rev" viewBox="0 0 8 8" refX="1" refY="4" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M 7.5 1 L 0.8 4 L 7.5 7 Z" fill="#38BDF8"/>
     </marker>
-    <clipPath id="clip-out-1-dark"><rect x="38" y="476" width="268" height="80" rx="8"/></clipPath>
-    <clipPath id="clip-out-2a-dark"><rect x="356" y="476" width="129" height="80" rx="8"/></clipPath>
-    <clipPath id="clip-out-2b-dark"><rect x="495" y="476" width="129" height="80" rx="8"/></clipPath>
-    <clipPath id="clip-out-3a-dark"><rect x="674" y="476" width="129" height="80" rx="8"/></clipPath>
-    <clipPath id="clip-out-3b-dark"><rect x="813" y="476" width="129" height="80" rx="8"/></clipPath>
+    <marker id="arr-iso" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M 0.5 1 L 7.2 4 L 0.5 7 Z" fill="#10B981"/>
+    </marker>
+
+    <!-- Clip paths for razor-sharp 2px top-edge cyan rails on active runtime servers -->
+    <clipPath id="clip-canvas"><rect x="1" y="1" width="1038" height="618" rx="10"/></clipPath>
+    <clipPath id="clip-srv-1"><rect x="362" y="98" width="248" height="104" rx="4"/></clipPath>
+    <clipPath id="clip-srv-2"><rect x="362" y="214" width="248" height="136" rx="4"/></clipPath>
+    <clipPath id="clip-srv-4"><rect x="362" y="494" width="248" height="68" rx="4"/></clipPath>
+
     <style>
       .sans { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Helvetica, Arial, sans-serif; }
       .mono { font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace; }
-      .hub-title { font-size: 15px; font-weight: 700; fill: #F0F6FC; letter-spacing: -0.2px; }
-      .col-hdr   { font-size: 10.8px; font-weight: 700; fill: #D8E4F2; letter-spacing: 0.65px; }
-      .step-num  { font-size: 10px; font-weight: 700; fill: #7DD3FC; text-anchor: middle; }
-      .card-cmd  { font-size: 12px; font-weight: 700; fill: #7DD3FC; }
-      .card-ttl  { font-size: 12.2px; font-weight: 700; fill: #F0F6FC; }
-      .split-cmd { font-size: 11.4px; font-weight: 700; fill: #7DD3FC; }
-      .split-ttl { font-size: 11.6px; font-weight: 700; fill: #F0F6FC; }
-      .out-ttl   { font-size: 12.2px; font-weight: 700; fill: #A7F3D0; }
-      .out-sm    { font-size: 11.2px; font-weight: 700; fill: #A7F3D0; }
-      .out2-sm   { font-size: 11.2px; font-weight: 700; fill: #BAE6FD; }
-      .body      { font-size: 11px; font-weight: 400; fill: #BACAE0; }
-      .body-sm   { font-size: 10.6px; font-weight: 400; fill: #BACAE0; }
-      .muted     { font-size: 10.5px; font-weight: 400; fill: #93A8C2; }
-      .muted-sm  { font-size: 10.2px; font-weight: 400; fill: #93A8C2; }
-      .tag       { font-size: 9.2px; font-weight: 700; fill: #A6BAD2; letter-spacing: 0.5px; text-anchor: end; }
-      .chip-txt  { font-size: 10.8px; font-weight: 500; fill: #C9D6E6; text-anchor: middle; }
-      .badge-txt { font-size: 9.5px; font-weight: 700; fill: #7DD3FC; letter-spacing: 0.55px; text-anchor: middle; }
-      .rec-txt   { font-size: 9px; font-weight: 700; fill: #7DD3FC; letter-spacing: 0.4px; text-anchor: middle; }
-      .pill-txt  { font-size: 9px; font-weight: 700; fill: #A6BAD2; letter-spacing: 0.4px; text-anchor: middle; }
-      .edge      { fill: none; stroke: #5A6F8A; stroke-width: 1.35; stroke-linecap: round; stroke-linejoin: round; }
-      .edge-acc  { fill: none; stroke: #38BDF8; stroke-width: 1.45; stroke-linecap: round; stroke-linejoin: round; }
-      .edge-out  { fill: none; stroke: #34D399; stroke-width: 1.4; stroke-linecap: round; stroke-linejoin: round; }
+
+      .hdr-brand { font-size: 12.5px; font-weight: 700; fill: #F1F5F9; letter-spacing: 0.9px; }
+      .hdr-sub   { font-size: 9.8px; font-weight: 500; fill: #94A3B8; letter-spacing: 0.7px; }
+      .hdr-pkgs  { font-size: 9.4px; font-weight: 400; fill: #64748B; text-anchor: end; }
+
+      .zone-lbl      { font-size: 9.4px; font-weight: 700; fill: #94A3B8; letter-spacing: 0.85px; }
+      .zone-lbl-acc  { font-size: 9.4px; font-weight: 700; fill: #38BDF8; letter-spacing: 0.85px; }
+      .zone-sub      { font-size: 8.5px; font-weight: 500; fill: #64748B; letter-spacing: 0.65px; text-anchor: end; }
+      .tb-stamp      { font-size: 8.2px; font-weight: 700; fill: #7DD3FC; letter-spacing: 0.75px; text-anchor: middle; }
+      .micro-hdr     { font-size: 8.2px; font-weight: 700; fill: #64748B; letter-spacing: 0.85px; }
+
+      .node-cmd  { font-size: 11.2px; font-weight: 700; fill: #38BDF8; }
+      .node-ttl  { font-size: 11.2px; font-weight: 600; fill: #F1F5F9; }
+      .node-ttl-sm { font-size: 10.6px; font-weight: 600; fill: #F1F5F9; }
+      .lane-cmd  { font-size: 10.2px; font-weight: 700; fill: #38BDF8; }
+      .lane-cmd2 { font-size: 10.2px; font-weight: 700; fill: #CBD5E1; }
+      .lane-ttl  { font-size: 10px; font-weight: 500; fill: #CBD5E1; }
+
+      .line-hi   { font-size: 10px; font-weight: 400; fill: #CBD5E1; }
+      .line-md   { font-size: 9.8px; font-weight: 400; fill: #94A3B8; }
+      .line-lo   { font-size: 9px; font-weight: 400; fill: #7E92AD; }
+      .mono-hi   { font-size: 9.1px; font-weight: 500; fill: #CBD5E1; }
+      .mono-md   { font-size: 8.6px; font-weight: 400; fill: #94A3B8; }
+      .mono-lo   { font-size: 8.3px; font-weight: 400; fill: #64748B; }
+      .mono-dim  { font-size: 8.4px; font-weight: 400; fill: #7E92AD; }
+
+      .wire-art-lbl { font-size: 8.4px; font-weight: 500; fill: #94A3B8; text-anchor: middle; }
+      .wire-enc-lbl { font-size: 8.5px; font-weight: 600; fill: #7DD3FC; text-anchor: middle; }
+      .wire-sub-lbl { font-size: 7.9px; font-weight: 400; fill: #94A3B8; text-anchor: middle; }
+      .wire-iso-lbl { font-size: 8.5px; font-weight: 600; fill: #6EE7B7; text-anchor: middle; }
+
+      .leg-txt { font-size: 8.6px; font-weight: 400; fill: #7E92AD; }
+      .leg-end { font-size: 8.6px; font-weight: 400; fill: #7E92AD; text-anchor: end; }
     </style>
   </defs>
 
-  <!-- Self-contained rounded surface canvas (theme-mismatch safe, crisp edges) -->
-  <rect x="1" y="1" width="978" height="594" rx="14" fill="#0D1117" stroke="#21262D" stroke-width="1"/>
+  <!-- OBSIDIAN CANVAS PLATE + SUBTLE CAD DOT FIELD -->
+  <rect x="1" y="1" width="1038" height="618" rx="10" fill="#05070B"/>
+  <g clip-path="url(#clip-canvas)">
+    <rect x="1" y="50" width="1038" height="532" fill="url(#cad-dots)"/>
+    <line x1="12" y1="1.5" x2="1028" y2="1.5" stroke="#334155" stroke-width="0.9" opacity="0.55"/>
+  </g>
+  <rect x="1" y="1" width="1038" height="618" rx="10" fill="none" stroke="#1E293B" stroke-width="1"/>
 
-  <!-- TOP ORCHESTRATOR HUB -->
-  <g id="orchestrator-hub">
-    <rect x="66" y="20" width="848" height="94" rx="10" fill="#111824" stroke="#38BDF8" stroke-width="1.25"/>
-    <line x1="150" y1="20.6" x2="830" y2="20.6" stroke="#7DD3FC" stroke-width="1" opacity="0.4"/>
-
-    <!-- Top Row: unified rx=5 badges on both ends -->
-    <rect x="86" y="34" width="92" height="21" rx="5" fill="#0D2538" stroke="#25638A" stroke-width="0.9"/>
-    <text class="mono badge-txt" x="132" y="48">CORE BINARY</text>
-
-    <text class="sans hub-title" x="192" y="49.5">vibe-slayer — Standalone Rust + C99 Engine</text>
-
-    <rect x="708" y="34" width="186" height="21" rx="5" fill="#0D2538" stroke="#25638A" stroke-width="0.9"/>
-    <text class="mono badge-txt" x="801" y="48">0 CRATES · ZERO NODE.JS</text>
-
-    <!-- Bottom Row: 3 Equal Capability Chips (w=260, gap=14, optically centered at y=87) -->
-    <rect x="86" y="69" width="260" height="28" rx="6" fill="#151E2C" stroke="#2A384D" stroke-width="1"/>
-    <text class="sans chip-txt" x="216" y="86.5">Natural-Language CLI (ask / explain)</text>
-
-    <rect x="360" y="69" width="260" height="28" rx="6" fill="#151E2C" stroke="#2A384D" stroke-width="1"/>
-    <text class="sans chip-txt" x="490" y="86.5">Explicit CLI (website · shield-3d · scan)</text>
-
-    <rect x="634" y="69" width="260" height="28" rx="6" fill="#151E2C" stroke="#2A384D" stroke-width="1"/>
-    <text class="sans chip-txt" x="764" y="86.5">Presets (fast · balanced · paranoid)</text>
+  <!-- TOP SCHEMATIC HEADER RAIL -->
+  <g id="header-rail">
+    <polygon points="28,21 33.5,26.5 28,32 22.5,26.5" fill="none" stroke="#38BDF8" stroke-width="1.35"/>
+    <circle cx="28" cy="26.5" r="1.4" fill="#38BDF8"/>
+    <text class="sans hdr-brand" x="42" y="30.5">VIBE-SLAYER</text>
+    <text class="mono hdr-sub" x="148" y="30.2"><tspan fill="#334155">/</tspan>  PROTECTION ARCHITECTURE &amp; TRUST BOUNDARIES</text>
+    <text class="mono hdr-pkgs" x="1016" y="30.2">vibeslayer-native-core · vibeslayer-suite · vibeslayer-policy-kit</text>
+    <line x1="1" y1="50" x2="1039" y2="50" stroke="#151E2C" stroke-width="1"/>
   </g>
 
-  <!-- ORTHOGONAL DISTRIBUTION BUS (clean curved shoulders, zero trident dot) -->
-  <g id="bus-connectors">
-    <circle cx="490" cy="114" r="3" fill="#38BDF8"/>
-    <path class="edge-acc" d="M 490,117 L 490,164" marker-end="url(#arr-acc-dark)"/>
-    <path class="edge-acc" d="M 490,130 Q 490,140 480,140 L 182,140 Q 172,140 172,150 L 172,164" marker-end="url(#arr-acc-dark)"/>
-    <path class="edge-acc" d="M 490,130 Q 490,140 500,140 L 798,140 Q 808,140 808,150 L 808,164" marker-end="url(#arr-acc-dark)"/>
+  <!-- THREE SECURITY ZONES + VERTICAL TRUST BOUNDARY CHANNEL -->
+  <g id="zone-frames">
+    <!-- Zone I: Offline Build & Seal -->
+    <text class="mono zone-lbl" x="26" y="76">OFFLINE BUILD &amp; SEAL</text>
+    <text class="mono zone-sub" x="286" y="76">LOCAL · CI</text>
+    <rect x="24" y="86" width="264" height="488" rx="6" fill="#080C12" stroke="#162030" stroke-width="1"/>
+
+    <!-- Zone II: Trusted Runtime & Policy -->
+    <text class="mono zone-lbl-acc" x="352" y="76">TRUSTED RUNTIME &amp; POLICY</text>
+    <text class="mono zone-sub" x="620" y="76">SERVER · VAULT</text>
+    <rect x="350" y="86" width="272" height="488" rx="6" fill="#080F18" stroke="#192D42" stroke-width="1"/>
+
+    <!-- Vertical Cryptographic Trust Boundary -->
+    <line x1="683" y1="86" x2="683" y2="574" stroke="#38BDF8" stroke-width="1.2" stroke-dasharray="4 4" opacity="0.62"/>
+    <rect x="631" y="64" width="104" height="17" rx="3" fill="#071828" stroke="#1E4968" stroke-width="0.9"/>
+    <text class="mono tb-stamp" x="683" y="75.3">TRUST BOUNDARY</text>
+
+    <!-- Zone III: Untrusted Execution -->
+    <text class="mono zone-lbl" x="746" y="76">UNTRUSTED EXECUTION</text>
+    <text class="mono zone-sub" x="1014" y="76">CLIENT · HOST</text>
+    <rect x="744" y="86" width="272" height="488" rx="6" fill="#06090E" stroke="#1A2434" stroke-width="1" stroke-dasharray="4 3"/>
   </g>
 
-  <!-- COLUMN 1: LIVE WEBSITES & WEB COMPONENTS -->
-  <g id="col-web">
-    <rect x="22" y="170" width="300" height="404" rx="11" fill="#101620" stroke="#233044" stroke-width="1.15"/>
+  <!-- ==================== BAND 1: LIVE WEBSITES & WEB COMPONENTS ==================== -->
+  <g id="band-web">
+    <!-- Zone I -->
+    <rect x="36" y="98" width="240" height="104" rx="4" fill="#0C111B" stroke="#1E293B" stroke-width="1"/>
+    <text x="48" y="118"><tspan class="mono node-cmd">website</tspan><tspan class="sans node-ttl"> · Web Builder</tspan></text>
+    <text class="sans line-hi" x="48" y="137">AES-256-GCM .vsweb + rtKey JS</text>
+    <text class="sans line-md" x="48" y="154">Boot anti-CDP + inline stealth guard</text>
+    <text class="mono mono-dim" x="48" y="171">vibeslayer.web.json · /loader.js</text>
+    <text class="mono mono-lo" x="48" y="191">rust_core/src/web_runtime.rs</text>
 
-    <rect x="38" y="186" width="26" height="20" rx="5" fill="#0D2436" stroke="#1F4F73" stroke-width="0.9"/>
-    <text class="mono step-num" x="51" y="199.5">01</text>
-    <text class="sans col-hdr" x="74" y="200">WEBSITES &amp; WEB COMPONENTS</text>
-    <line x1="38" y1="218" x2="306" y2="218" stroke="#1D2838" stroke-width="1"/>
+    <!-- Artifact wire -->
+    <circle cx="276" cy="150" r="2.1" fill="#64748B"/>
+    <line x1="278" y1="150" x2="359" y2="150" stroke="#64748B" stroke-width="1.2" marker-end="url(#arr-art)"/>
+    <text class="mono wire-art-lbl" x="319" y="143">.vsweb</text>
 
-    <!-- Stage 1: Build -->
-    <rect x="38" y="234" width="268" height="74" rx="8" fill="#151D29" stroke="#2D3B50" stroke-width="1.1"/>
-    <text class="mono card-cmd" x="52" y="257">website --preset paranoid</text>
-    <text class="mono tag" x="292" y="256">BUILD</text>
-    <text class="sans body" x="52" y="277">.vsweb AES-256-GCM + rtKey JS</text>
-    <text class="sans muted" x="52" y="294">Boot anti-CDP &amp; inline stealth guard</text>
+    <!-- Zone II (Active Server) -->
+    <rect x="362" y="98" width="248" height="104" rx="4" fill="#0B1522" stroke="#1E4968" stroke-width="1.1"/>
+    <g clip-path="url(#clip-srv-1)"><rect x="362" y="98" width="248" height="2" fill="#38BDF8"/></g>
+    <text x="374" y="118"><tspan class="mono node-cmd">serve</tspan><tspan class="sans node-ttl"> · RFC 9112 HTTP/1.1</tspan></text>
+    <text class="mono mono-hi" x="374" y="137">POST /__vibeslayer/lease (ECDH P-256)</text>
+    <text class="sans line-md" x="374" y="154">Single-use IP HMAC tickets</text>
+    <text class="sans line-md" x="374" y="171">Origin header &amp; VS_ATTEST_V1 check</text>
+    <text class="mono mono-lo" x="374" y="191">Nginx · Caddy · Cloudflare compatible</text>
 
-    <line class="edge" x1="172" y1="308" x2="172" y2="340" marker-end="url(#arr-dark)"/>
+    <!-- Trust boundary bidirectional wire -->
+    <line x1="613" y1="150" x2="753" y2="150" stroke="#38BDF8" stroke-width="1.35" marker-start="url(#arr-enc-rev)" marker-end="url(#arr-enc)"/>
+    <rect x="631" y="135" width="104" height="30" rx="3" fill="#05070B" stroke="#1E3A52" stroke-width="0.9"/>
+    <text class="mono wire-enc-lbl" x="683" y="147.5">ECDH P-256</text>
+    <text class="mono wire-sub-lbl" x="683" y="159">AES-GCM + attest</text>
 
-    <!-- Stage 2: Runtime Server (server-enforced controls only) -->
-    <rect x="38" y="346" width="268" height="94" rx="8" fill="#102232" stroke="#2B77A3" stroke-width="1.15"/>
-    <text class="sans card-ttl" x="52" y="369"><tspan class="mono card-cmd">serve</tspan> · RFC 9112 HTTP/1.1</text>
-    <text class="mono tag" x="292" y="368">SERVER</text>
-    <text class="sans body" x="52" y="390">Ephemeral ECDH P-256 key leases</text>
-    <text class="sans body" x="52" y="407">Single-use IP HMAC tickets &amp; Origin</text>
-    <text class="sans muted" x="52" y="424">Header &amp; stealth-score verification</text>
-
-    <line class="edge-out" x1="172" y1="440" x2="172" y2="470" marker-end="url(#arr-out-dark)"/>
-
-    <!-- Stage 3: Verified Browser Boundary -->
-    <rect x="38" y="476" width="268" height="80" rx="8" fill="#0E1D1B" stroke="#225E4C" stroke-width="1.15"/>
-    <g clip-path="url(#clip-out-1-dark)">
-      <rect x="38" y="476" width="4" height="80" fill="#34D399"/>
-    </g>
-    <text class="sans out-ttl" x="54" y="499">Verified Browser WebCrypto</text>
-    <text class="sans body" x="54" y="519">extractable: false · 0 offline bits</text>
-    <text class="sans muted" x="54" y="537">Shadow DOM &amp; Custom Elements</text>
+    <!-- Zone III -->
+    <rect x="756" y="98" width="248" height="104" rx="4" fill="#0C111B" stroke="#1E293B" stroke-width="1"/>
+    <circle cx="771" cy="114" r="3" fill="#10B981"/>
+    <text class="sans node-ttl" x="781" y="118">Browser WebCrypto</text>
+    <text class="mono mono-hi" x="768" y="137">CryptoKey { extractable: false }</text>
+    <text class="sans line-md" x="768" y="154">0 offline plaintext bits on disk/CDN</text>
+    <text class="sans line-md" x="768" y="171">Shadow DOM &amp; Custom Elements</text>
+    <text class="mono mono-lo" x="768" y="191">Runtime-keyed blob · offline-dead JS</text>
   </g>
 
-  <!-- COLUMN 2: INTERACTIVE 3D (.GLB) -->
-  <g id="col-3d">
-    <rect x="340" y="170" width="300" height="404" rx="11" fill="#101620" stroke="#233044" stroke-width="1.15"/>
+  <!-- ==================== BAND 2: INTERACTIVE 3D ASSETS (.GLB) ==================== -->
+  <g id="band-3d">
+    <!-- Zone I -->
+    <rect x="36" y="214" width="240" height="136" rx="4" fill="#0C111B" stroke="#1E293B" stroke-width="1"/>
+    <text x="48" y="234"><tspan class="mono node-cmd">shield-3d</tspan><tspan class="sans node-ttl"> · Mesh Cooker</tspan></text>
+    <text class="sans line-hi" x="48" y="254">Cooks .glb → scene.vsshield2</text>
+    <text class="sans line-md" x="48" y="272">Encrypted tile atlases + chaff tris</text>
+    <text class="sans line-md" x="48" y="290">External .vsshield.key (no raw .glb)</text>
+    <text class="sans line-md" x="48" y="308">64-bit forensic buyer watermark</text>
+    <text class="mono mono-lo" x="48" y="338">shield_viewer.rs · raster_stream.rs</text>
 
-    <rect x="356" y="186" width="26" height="20" rx="5" fill="#0D2436" stroke="#1F4F73" stroke-width="0.9"/>
-    <text class="mono step-num" x="369" y="199.5">02</text>
-    <text class="sans col-hdr" x="392" y="200">INTERACTIVE 3D (.GLB)</text>
-    <line x1="356" y1="218" x2="624" y2="218" stroke="#1D2838" stroke-width="1"/>
+    <!-- Artifact wire -->
+    <circle cx="276" cy="282" r="2.1" fill="#64748B"/>
+    <line x1="278" y1="282" x2="359" y2="282" stroke="#64748B" stroke-width="1.2" marker-end="url(#arr-art)"/>
+    <text class="mono wire-art-lbl" x="319" y="275">.vsshield2</text>
 
-    <!-- Stage 1: Cook / Shield -->
-    <rect x="356" y="234" width="268" height="74" rx="8" fill="#151D29" stroke="#2D3B50" stroke-width="1.1"/>
-    <text class="mono card-cmd" x="370" y="257">shield-3d --preset paranoid</text>
-    <text class="mono tag" x="610" y="256">COOK</text>
-    <text class="sans body" x="370" y="277">scene.vsshield2 + tile atlases</text>
-    <text class="sans muted" x="370" y="294">External .vsshield.key · no raw .glb</text>
+    <!-- Zone II (Active Dual Server) -->
+    <rect x="362" y="214" width="248" height="136" rx="4" fill="#0B1522" stroke="#1E4968" stroke-width="1.1"/>
+    <g clip-path="url(#clip-srv-2)"><rect x="362" y="214" width="248" height="2" fill="#38BDF8"/></g>
+    <text x="374" y="233"><tspan class="mono node-cmd">serve-3d</tspan><tspan class="sans node-ttl"> · Dual Render Server</tspan></text>
 
-    <!-- Fork: secondary gray branch drawn FIRST, primary blue branch ON TOP (zero overpaint!) -->
-    <path class="edge" d="M 490,308 L 490,317 Q 490,325 498,325 L 551.5,325 Q 559.5,325 559.5,333 L 559.5,340" marker-end="url(#arr-dark)"/>
-    <path class="edge-acc" d="M 490,308 L 490,317 Q 490,325 482,325 L 428.5,325 Q 420.5,325 420.5,333 L 420.5,340" marker-end="url(#arr-acc-dark)"/>
+    <!-- Sub-lane 2A: stream (exact center y=264) -->
+    <rect x="372" y="241" width="228" height="46" rx="3" fill="#0C1B28" stroke="#1E4968" stroke-width="0.95"/>
+    <text x="382" y="259"><tspan class="mono lane-cmd">stream</tspan><tspan class="sans lane-ttl"> — Server software PBR</tspan></text>
+    <text class="mono mono-md" x="382" y="276">/__vibeslayer/frame · blind 64-bit WM</text>
 
-    <!-- Stage 2A: serve-3d stream mode -->
-    <rect x="356" y="346" width="129" height="94" rx="8" fill="#102232" stroke="#2B77A3" stroke-width="1.15"/>
-    <text class="mono split-cmd" x="368" y="367">serve-3d</text>
-    <rect x="368" y="375" width="94" height="17" rx="4" fill="#0C2C42" stroke="#25709C" stroke-width="0.75"/>
-    <text class="mono rec-txt" x="415" y="386.5">--mode stream</text>
-    <text class="sans body-sm" x="368" y="410">0 verts · 0 WebGL</text>
-    <text class="sans muted-sm" x="368" y="426">Paranoid default</text>
+    <!-- Sub-lane 2B: gpu (exact center y=324) -->
+    <rect x="372" y="301" width="228" height="46" rx="3" fill="#090E16" stroke="#1E293B" stroke-width="0.95"/>
+    <text x="382" y="319"><tspan class="mono lane-cmd2">gpu</tspan><tspan class="sans lane-ttl"> — 60 FPS shader cipher</tspan></text>
+    <text class="mono mono-dim" x="382" y="336">/__vibeslayer/session · /tex · /camera</text>
 
-    <!-- Stage 2B: serve-3d gpu mode -->
-    <rect x="495" y="346" width="129" height="94" rx="8" fill="#151D29" stroke="#2D3B50" stroke-width="1.1"/>
-    <text class="mono split-cmd" x="507" y="367">serve-3d</text>
-    <rect x="507" y="375" width="76" height="17" rx="4" fill="#1B2638" stroke="#2E3E56" stroke-width="0.75"/>
-    <text class="mono pill-txt" x="545" y="386.5">--mode gpu</text>
-    <text class="sans body-sm" x="507" y="410">60 FPS WebGL2</text>
-    <text class="sans muted-sm" x="507" y="426">Shader cipher</text>
+    <!-- Dual straight trust boundary wires (mathematically centered at y=264 and y=324) -->
+    <circle cx="600" cy="264" r="2.1" fill="#10B981"/>
+    <line x1="602" y1="264" x2="753" y2="264" stroke="#10B981" stroke-width="1.35" marker-end="url(#arr-iso)"/>
+    <rect x="631" y="254" width="104" height="20" rx="3" fill="#05070B" stroke="#144D3D" stroke-width="0.9"/>
+    <text class="mono wire-iso-lbl" x="683" y="266.8">AES-GCM frames</text>
 
-    <!-- Independent outcome arrows for stream vs gpu -->
-    <line class="edge-out" x1="420.5" y1="440" x2="420.5" y2="470" marker-end="url(#arr-out-dark)"/>
-    <line class="edge-acc" x1="559.5" y1="440" x2="559.5" y2="470" marker-end="url(#arr-acc-dark)"/>
+    <circle cx="600" cy="324" r="2.1" fill="#38BDF8"/>
+    <line x1="602" y1="324" x2="753" y2="324" stroke="#38BDF8" stroke-width="1.3" marker-end="url(#arr-enc)"/>
+    <rect x="631" y="314" width="104" height="20" rx="3" fill="#05070B" stroke="#1E3A52" stroke-width="0.9"/>
+    <text class="mono wire-enc-lbl" x="683" y="326.8">chaff + cipher</text>
 
-    <!-- Stage 3A: Zero-Geometry Stream Outcome -->
-    <rect x="356" y="476" width="129" height="80" rx="8" fill="#0E1D1B" stroke="#225E4C" stroke-width="1.15"/>
-    <g clip-path="url(#clip-out-2a-dark)">
-      <rect x="356" y="476" width="3.5" height="80" fill="#34D399"/>
-    </g>
-    <text class="sans out-sm" x="368" y="499">Canvas2D Stream</text>
-    <text class="sans body-sm" x="368" y="519">AES-GCM frames</text>
-    <text class="sans muted-sm" x="368" y="537">64-bit pixel WM</text>
+    <!-- Zone III: 2 full-width client plates (8px gap, exact centers y=264 & y=324, exact y=350 baseline) -->
+    <text class="mono micro-hdr" x="758" y="227">3D CLIENT TARGETS</text>
 
-    <!-- Stage 3B: Hardened WebGL2 Outcome -->
-    <rect x="495" y="476" width="129" height="80" rx="8" fill="#111C28" stroke="#2A4A68" stroke-width="1.15"/>
-    <g clip-path="url(#clip-out-2b-dark)">
-      <rect x="495" y="476" width="3.5" height="80" fill="#38BDF8"/>
-    </g>
-    <text class="sans out2-sm" x="507" y="499">Hardened WebGL2</text>
-    <text class="sans body-sm" x="507" y="519">Chaff + tile atlas</text>
-    <text class="sans muted-sm" x="507" y="537">64-bit mesh WM</text>
+    <rect x="756" y="238" width="248" height="52" rx="4" fill="#0C111B" stroke="#1E293B" stroke-width="1"/>
+    <circle cx="771" cy="252.5" r="3" fill="#10B981"/>
+    <text class="sans node-ttl-sm" x="781" y="256">Canvas2D Pixel Stream</text>
+    <text class="sans line-hi" x="768" y="271">0 vertices · 0 UVs · 0 WebGL exposed</text>
+    <text class="sans line-lo" x="768" y="283.5">Single-in-flight · blind 64-bit pixel WM</text>
+
+    <rect x="756" y="298" width="248" height="52" rx="4" fill="#0C111B" stroke="#1E293B" stroke-width="1"/>
+    <circle cx="771" cy="312.5" r="3" fill="#38BDF8"/>
+    <text class="sans node-ttl-sm" x="781" y="316">Hardened WebGL2 Client</text>
+    <text class="sans line-hi" x="768" y="331">60 FPS GPU · tile atlas + shader unseal</text>
+    <text class="sans line-lo" x="768" y="343.5">Server-baked 64-bit mesh WM</text>
   </g>
 
-  <!-- COLUMN 3: REPOS, ELF64 & AI WEIGHTS -->
-  <g id="col-vault">
-    <rect x="658" y="170" width="300" height="404" rx="11" fill="#101620" stroke="#233044" stroke-width="1.15"/>
+  <!-- ==================== BAND 3: REPOS, NATIVE ELF64 & AI WEIGHTS ==================== -->
+  <g id="band-vault">
+    <!-- Zone I -->
+    <rect x="36" y="362" width="240" height="120" rx="4" fill="#0C111B" stroke="#1E293B" stroke-width="1"/>
+    <text class="mono node-cmd" x="48" y="381">scan · protect · wrap-elf</text>
+    <text class="sans line-hi" x="48" y="399">Auto-routes ELF64, .env, .wasm, AI</text>
+    <text class="sans line-md" x="48" y="416">VSPK3 (CMT4 + ChaCha20, 1024 B pad)</text>
+    <text class="sans line-md" x="48" y="433">Static-PIE ELF64 (Linux x86_64, gcc)</text>
+    <text class="sans line-md" x="48" y="450">VSRA 64 KiB O(1) chunks (Node suite)</text>
+    <text class="mono mono-lo" x="48" y="471">auto_cli.rs · v090_elite.rs · v100</text>
 
-    <rect x="674" y="186" width="26" height="20" rx="5" fill="#0D2436" stroke="#1F4F73" stroke-width="0.9"/>
-    <text class="mono step-num" x="687" y="199.5">03</text>
-    <text class="sans col-hdr" x="710" y="200">REPOS, ELF64 &amp; AI WEIGHTS</text>
-    <line x1="674" y1="218" x2="942" y2="218" stroke="#1D2838" stroke-width="1"/>
+    <!-- Artifact wire -->
+    <circle cx="276" cy="422" r="2.1" fill="#64748B"/>
+    <line x1="278" y1="422" x2="359" y2="422" stroke="#64748B" stroke-width="1.2" marker-end="url(#arr-art)"/>
+    <text class="mono wire-art-lbl" x="319" y="415">VSPK3/ELF</text>
 
-    <!-- Stage 1: Auto-Classification & Seal -->
-    <rect x="674" y="234" width="268" height="74" rx="8" fill="#151D29" stroke="#2D3B50" stroke-width="1.1"/>
-    <text class="mono card-cmd" x="688" y="257">scan · protect · unseal</text>
-    <text class="mono tag" x="928" y="256">SEAL</text>
-    <text class="sans body" x="688" y="277">Auto-routes code, .env, .wasm &amp; AI</text>
-    <text class="sans muted" x="688" y="294">0600 key vault + .gitignore hygiene</text>
+    <!-- Zone II -->
+    <rect x="362" y="362" width="248" height="120" rx="4" fill="#0C111B" stroke="#1E293B" stroke-width="1"/>
+    <text class="sans node-ttl" x="374" y="381">Key Vault &amp; Lease Authority</text>
+    <text class="sans line-hi" x="374" y="399">0600 key vault + .gitignore hygiene</text>
+    <text class="sans line-md" x="374" y="416">HKDF-SHA256 domain/asset subkeys</text>
+    <text class="mono mono-hi" x="374" y="433">run (FD-3 lease) · unseal · trace</text>
+    <text class="sans line-md" x="374" y="450">Per-lease VSRA chunk grants (suite)</text>
+    <text class="mono mono-lo" x="374" y="471">lib.rs · vibeslayer-suite/authority.js</text>
 
-    <!-- Fork -->
-    <path class="edge" d="M 808,308 L 808,317 Q 808,325 800,325 L 746.5,325 Q 738.5,325 738.5,333 L 738.5,340" marker-end="url(#arr-dark)"/>
-    <path class="edge" d="M 808,308 L 808,317 Q 808,325 816,325 L 869.5,325 Q 877.5,325 877.5,333 L 877.5,340" marker-end="url(#arr-dark)"/>
+    <!-- Dual straight trust boundary wires -->
+    <circle cx="610" cy="390" r="2.1" fill="#10B981"/>
+    <line x1="612" y1="390" x2="753" y2="390" stroke="#10B981" stroke-width="1.35" marker-end="url(#arr-iso)"/>
+    <rect x="631" y="380" width="104" height="20" rx="3" fill="#05070B" stroke="#144D3D" stroke-width="0.9"/>
+    <text class="mono wire-iso-lbl" x="683" y="392.8">FD-3 lease key</text>
 
-    <!-- Stage 2A: VSPK3 Vault (accurate whole-file headerless CMT4 AEAD) -->
-    <rect x="674" y="346" width="129" height="94" rx="8" fill="#151D29" stroke="#2D3B50" stroke-width="1.1"/>
-    <text class="sans split-ttl" x="686" y="367">VSPK3 Vault</text>
-    <rect x="686" y="375" width="84" height="17" rx="4" fill="#1B2638" stroke="#2E3E56" stroke-width="0.75"/>
-    <text class="mono pill-txt" x="728" y="386.5">HEADERLESS</text>
-    <text class="sans body-sm" x="686" y="410">CMT4 + ChaCha20</text>
-    <text class="sans muted-sm" x="686" y="426">1024 B pad AEAD</text>
+    <circle cx="610" cy="454" r="2.1" fill="#38BDF8"/>
+    <line x1="612" y1="454" x2="753" y2="454" stroke="#38BDF8" stroke-width="1.3" marker-end="url(#arr-enc)"/>
+    <rect x="631" y="444" width="104" height="20" rx="3" fill="#05070B" stroke="#1E3A52" stroke-width="0.9"/>
+    <text class="mono wire-enc-lbl" x="683" y="456.8">VSPK3 / VSRA</text>
 
-    <!-- Stage 2B: Static-PIE ELF64 -->
-    <rect x="813" y="346" width="129" height="94" rx="8" fill="#151D29" stroke="#2D3B50" stroke-width="1.1"/>
-    <text class="sans split-ttl" x="825" y="367">Static-PIE ELF64</text>
-    <rect x="825" y="375" width="76" height="17" rx="4" fill="#1B2638" stroke="#2E3E56" stroke-width="0.75"/>
-    <text class="mono pill-txt" x="863" y="386.5">NO INTERP</text>
-    <text class="sans body-sm" x="825" y="410">0 DT_NEEDED</text>
-    <text class="sans muted-sm" x="825" y="426">CET · memfd exec</text>
+    <!-- Zone III: 2 full-width execution plates -->
+    <rect x="756" y="362" width="248" height="56" rx="4" fill="#0C111B" stroke="#1E293B" stroke-width="1"/>
+    <circle cx="771" cy="378" r="3" fill="#10B981"/>
+    <text class="sans node-ttl-sm" x="781" y="381.5">Linux x86_64 Static-PIE Exec</text>
+    <text class="mono mono-hi" x="768" y="397.5">0 DT_NEEDED · Intel CET IBT+SHSTK</text>
+    <text class="sans line-lo" x="768" y="411">Sealed memfd_create / memfd_secret</text>
 
-    <!-- Independent outcome arrows for VSPK3 SDKs vs Direct Linux Exec -->
-    <line class="edge-out" x1="738.5" y1="440" x2="738.5" y2="470" marker-end="url(#arr-out-dark)"/>
-    <line class="edge-out" x1="877.5" y1="440" x2="877.5" y2="470" marker-end="url(#arr-out-dark)"/>
+    <rect x="756" y="426" width="248" height="56" rx="4" fill="#0C111B" stroke="#1E293B" stroke-width="1"/>
+    <circle cx="771" cy="442" r="3" fill="#38BDF8"/>
+    <text class="sans node-ttl-sm" x="781" y="445.5">Polyglot SDKs &amp; Node Suite</text>
+    <text class="sans line-hi" x="768" y="461.5">VSPK2/3: Rust · C · Go · Python</text>
+    <text class="sans line-lo" x="768" y="475">Node suite: VSRA · WASM · Web · 3D</text>
+  </g>
 
-    <!-- Stage 3A: Polyglot SDKs -->
-    <rect x="674" y="476" width="129" height="80" rx="8" fill="#0E1D1B" stroke="#225E4C" stroke-width="1.15"/>
-    <g clip-path="url(#clip-out-3a-dark)">
-      <rect x="674" y="476" width="3.5" height="80" fill="#34D399"/>
-    </g>
-    <text class="sans out-sm" x="686" y="499">Polyglot SDKs</text>
-    <text class="sans body-sm" x="686" y="519">Rust · C · Go · Py</text>
-    <text class="sans muted-sm" x="686" y="537">+ JS VSRA 64 KiB</text>
+  <!-- ==================== BAND 4: SOURCE-CONFIGURED API POLICY BOUNDARY ==================== -->
+  <g id="band-policy">
+    <!-- Zone I -->
+    <rect x="36" y="494" width="240" height="68" rx="4" fill="#0C111B" stroke="#1E293B" stroke-width="1"/>
+    <text x="48" y="513"><tspan class="mono node-cmd">definePolicy()</tspan><tspan class="sans node-ttl"> · Policy Spec</tspan></text>
+    <text class="sans line-md" x="48" y="531">enabled: false default · typed params</text>
+    <text class="mono mono-lo" x="48" y="551">vibeslayer-policy-kit/src/index.js</text>
 
-    <!-- Stage 3B: Direct Linux Exec -->
-    <rect x="813" y="476" width="129" height="80" rx="8" fill="#0E1D1B" stroke="#225E4C" stroke-width="1.15"/>
-    <g clip-path="url(#clip-out-3b-dark)">
-      <rect x="813" y="476" width="3.5" height="80" fill="#34D399"/>
-    </g>
-    <text class="sans out-sm" x="825" y="499">Linux Execution</text>
-    <text class="sans body-sm" x="825" y="519">FD-3 lease runner</text>
-    <text class="sans muted-sm" x="825" y="537">or --standalone</text>
+    <!-- Artifact wire -->
+    <circle cx="276" cy="528" r="2.1" fill="#64748B"/>
+    <line x1="278" y1="528" x2="359" y2="528" stroke="#64748B" stroke-width="1.2" marker-end="url(#arr-art)"/>
+    <text class="mono wire-art-lbl" x="319" y="521">Policy</text>
+
+    <!-- Zone II (Active Gateway) -->
+    <rect x="362" y="494" width="248" height="68" rx="4" fill="#0B1522" stroke="#1E4968" stroke-width="1.1"/>
+    <g clip-path="url(#clip-srv-4)"><rect x="362" y="494" width="248" height="2" fill="#38BDF8"/></g>
+    <text x="374" y="513"><tspan class="mono node-cmd">vibeslayer-policy-kit</tspan><tspan class="sans node-ttl"> · Gateway</tspan></text>
+    <text class="sans line-hi" x="374" y="531">server-only · preview · client-sealed</text>
+    <text class="mono mono-dim" x="374" y="551">HMAC lease · replay guard · antiStealth</text>
+
+    <!-- Trust boundary wire -->
+    <circle cx="610" cy="528" r="2.1" fill="#38BDF8"/>
+    <line x1="612" y1="528" x2="753" y2="528" stroke="#38BDF8" stroke-width="1.3" marker-end="url(#arr-enc)"/>
+    <rect x="631" y="518" width="104" height="20" rx="3" fill="#05070B" stroke="#1E3A52" stroke-width="0.9"/>
+    <text class="mono wire-enc-lbl" x="683" y="530.8">HMAC + attest</text>
+
+    <!-- Zone III -->
+    <rect x="756" y="494" width="248" height="68" rx="4" fill="#0C111B" stroke="#1E293B" stroke-width="1"/>
+    <circle cx="771" cy="509.5" r="3" fill="#10B981"/>
+    <text class="sans node-ttl-sm" x="781" y="513">Redacted API &amp; Proxy Clients</text>
+    <text class="sans line-hi" x="768" y="531">0 secret fields · 800 B bbox preview</text>
+    <text class="sans line-lo" x="768" y="551">Stealth / CDP denied (HTTP 403)</text>
+  </g>
+
+  <!-- BOTTOM TECHNICAL LEGEND RAIL (symmetric ~36px gaps, symmetric 3-dash icon) -->
+  <g id="legend-rail">
+    <line x1="1" y1="582" x2="1039" y2="582" stroke="#151E2C" stroke-width="1"/>
+
+    <line x1="24" y1="601" x2="39" y2="601" stroke="#64748B" stroke-width="1.3" marker-end="url(#arr-art)"/>
+    <text class="mono leg-txt" x="46" y="604">Artifact</text>
+
+    <line x1="122" y1="601" x2="137" y2="601" stroke="#38BDF8" stroke-width="1.35" marker-end="url(#arr-enc)"/>
+    <text class="mono leg-txt" x="144" y="604">Encrypted wire / lease</text>
+
+    <line x1="294" y1="601" x2="309" y2="601" stroke="#10B981" stroke-width="1.35" marker-end="url(#arr-iso)"/>
+    <text class="mono leg-txt" x="316" y="604">Isolated / 0-geometry</text>
+
+    <line x1="462" y1="595.25" x2="462" y2="606.75" stroke="#38BDF8" stroke-width="1.2" stroke-dasharray="2.5 2"/>
+    <text class="mono leg-txt" x="470" y="604">0 plaintext / 0 master keys cross</text>
+
+    <text class="mono leg-end" x="1016" y="604">Presets: fast · balanced · paranoid</text>
   </g>
 </svg>

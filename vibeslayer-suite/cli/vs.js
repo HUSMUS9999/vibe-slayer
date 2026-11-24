@@ -112,21 +112,21 @@ function parseRunArgs(args) {
 }
 
 function printHelp() {
-  console.log(`Vibe-Slayer Automatic Protection (v1.0.0-beta.3)
+  console.log(`vibeslayer-suite CLI (v0.8.0-beta.2)
 
 Protect a file or an entire repo in one command:
-  ./protect <file-or-folder> [-o <output>] [--standalone] [--seal-all] [--vault]
+  vs <file-or-folder> [-o <output>] [--standalone] [--seal-all] [--vault]
 
 Everyday commands:
-  ./protect demo                       Build, protect, test, run, watermark, and unseal a sample repo
-  ./protect scan <dir>                 Dry-run audit: see file classifications & secret warnings
-  ./protect <dir>                      Protect repo into <dir>-protected + auto-verify every output
-  ./protect <file>                     Auto-protect file (.protected, .vspk3, .vs3d, or .vault.elf)
-  ./protect test <protected>           Verify encryption, tamper rejection, ptrace rejection & CET
-  ./protect run <protected-bin> [-- args...]   Run a protected executable safely (FD 3 lease key)
-  ./protect unseal <protected> [-o <dest>]     Restore original files and check every SHA-256
-  ./protect watermark <file.vs3d> --buyer "alice@co" [-o pos.bin]
-  ./protect trace <pos.bin> [--model <file.vs3d>]
+  vs demo                       Build, protect, test, run, watermark, and unseal a sample repo
+  vs scan <dir>                 Dry-run audit: see file classifications & secret warnings
+  vs <dir>                      Protect repo into <dir>-protected + auto-verify every output
+  vs <file>                     Auto-protect file (.protected, .vspk3, .vs3d, or .vault.elf)
+  vs test <protected>           Verify encryption, tamper rejection, ptrace rejection & CET
+  vs run <protected-bin> [-- args...]   Run a protected executable safely (FD 3 lease key)
+  vs unseal <protected> [-o <dest>]     Restore original files and check every SHA-256
+  vs watermark <file.vs3d> --buyer "alice@co" [-o pos.bin]
+  vs trace <pos.bin> [--model <file.vs3d>]
 
 Common options:
   --standalone       Allow wrapped executables to run without .vibeslayer/keys.json

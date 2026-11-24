@@ -23,7 +23,7 @@ Developers configure every action and parameter rule directly in code via `defin
 | **`client-sealed` (`AES-256-GCM` + lease AAD)** | Ciphertext-only thief without lease key gets **0 plaintext bytes** (authenticated encryption, not custom obfuscation) | **Extractable** at or after legitimate client unsealing / GPU upload (`581,260 B` recovered in benchmark) | `0` ops/frame after one-time `~4.5 ms` unseal |
 | **`server-only` + `public-preview`** | Thief gets only the `800 B` bounding-box proxy (`0.14%` of original size, zero original mesh bytes) | **Unrecoverable** from client regardless of LLM runtime or token budget because secret fields and full geometry never leave the server | `0` ops/frame (`~0.55 ms` localhost HTTP per action) |
 
-### Why "extra-elite client-side LLM blinding" cannot make local plaintext unextractable
+### Why client-side obfuscation cannot make local plaintext unextractable
 
 Flagship coding/RE agents do not rely only on reading variable names or static ASTs:
 1. Prompt-injection strings or fake comments inside binaries/JS are ignored when the agent writes a 15-line script to dump runtime buffers.

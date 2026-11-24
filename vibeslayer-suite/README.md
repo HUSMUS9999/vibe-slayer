@@ -18,33 +18,27 @@ End-to-end multi-platform protection suite for **client-downloaded assets & loca
    - **Mobile (`libvsmobile.so`)**: Compiled JNI/C shared library binding `ChaCha20-Poly1305` asset decryption via `HKDF-SHA256` to `(packageName, runtimeApkSigningCertSha256, assetId)`—repackaged APKs fail with `MOBILE_AUTH_TAG_FAILED` (`rc=2`).
 3. **Live Authorized-Session Extraction Mitigation -> Cooked Runtime Streams + 64-Bit Traitor Watermarking**:
    - Any asset rendered locally exists in that authorized device's RAM/VRAM while active. To prevent clean re-authoring and trace leaks:
-     * **3D Spatial (`@vibeslayer/spatial-3d`)**: Strips all scene/node/mesh/material names, bakes `int16` SNORM GPU buffers (`VS3D`), and embeds an imperceptible **1,024-chip spread-spectrum $\pm 1\text{ LSB}$ watermark** (`100%` `1024/1024` bit attribution back to the leaking `leaseId`/account).
-     * **Data & AI (`@vibeslayer/data-ai`)**: `64 KiB` `O(1)` random-access `ChaCha20-Poly1305` tensor chunks (`VSRA`) + `±2e-6` FP32 spread-spectrum tensor watermark (`100%` leaker attribution, `0` inference loop ops).
-
----
+     * **3D Spatial (`spatial3dProduct`)**: Strips all scene/node/mesh/material names, bakes `int16` SNORM GPU buffers (`VS3D`), and embeds an imperceptible **1,024-chip spread-spectrum $\pm 1\text{ LSB}$ watermark** (`100%` `1024/1024` bit attribution back to the leaking `leaseId`/account).
+     * **Data & AI (`dataAiProduct`)**: `64 KiB` `O(1)` random-access `ChaCha20-Poly1305` tensor chunks (`VSRA`) + `±2e-6` FP32 spread-spectrum tensor watermark (`100%` leaker attribution, `0` inference loop ops).
 
 ## 2. Measured Footprint & Unseal Latency (`vibeslayer-suite v0.8.0-beta.2`)
 
-Measured across all 7 product engines on identical raw unprotected inputs (`npm run bench --prefix vibeslayer-suite`). For head-to-head comparisons against public tools (`esbuild`, `terser`, `javascript-obfuscator`, `js-confuser`, `strip`, `UPX`, `OpenSSL`), see [`../benchmarks/results.json`](../benchmarks/results.json) and [Vision & Benchmarks](../docs/vision-and-benchmarks.md).
+Measured across all 7 exported product modules from `vibeslayer-suite` (`src/index.js`) on identical raw unprotected inputs (`npm run bench --prefix vibeslayer-suite`). For head-to-head comparisons against public tools (`esbuild`, `terser`, `javascript-obfuscator`, `js-confuser`, `strip`, `UPX`, `OpenSSL`), see [`../benchmarks/results.json`](../benchmarks/results.json) and [Vision & Benchmarks](../docs/vision-and-benchmarks.md).
 
-| Product Line | Raw Size | Sealed Output & Measured Latency | Security Properties |
+| Product Module (`src/index.js`) | Raw Size | Sealed Output & Measured Latency | Security Properties |
 | :--- | ---: | :--- | :--- |
-| **1. Web (`@vibeslayer/web`)** | `116 B` | **`233 B` (`2.01×`)** · `2.46 ms` cold unseal | `AES-256-GCM` + non-extractable WebCrypto `ECDH P-256` |
-| **2. WASM (`@vibeslayer/wasm`)** | `100 B` | **`220 B` (`2.20×`)** · `0.97 ms` unseal+instantiate | `\0asm` header hidden (`false`); ABI preserved by default |
-| **3. 3D Spatial (`@vibeslayer/spatial-3d`)** | `581,260 B` | **`749,679 B` (`1.29×`)** · `4.71 ms` unseal | `0` raw chunks exposed (`7.9998` bits/B); `0` frame ops; 1024-chip watermark |
-| **4. Native Binary (`@vibeslayer/native`)** | `15,992 B` | **`25,656 B` (`1.60×`)** · `2.01 ms` cold start | `.rodata` encrypted (`7.94` bits/B `.vsblob`); live `.text` SHA-256 + `PR_SET_DUMPABLE=0` |
-| **5. Desktop (`@vibeslayer/desktop`)** | `67 B` rules | **`649 B` `.vsasar`** · `0.095 ms` IPC | `Ed25519`-signed bundle + native out-of-process enclave sidecar (`PR_SET_DUMPABLE=0`) |
-| **6. Mobile (`@vibeslayer/mobile`)** | `44 B` shader | **`24,056 B` `libvsmobile.so`** + `143 B` `.vsmb` · `1.30 ms` | APK signing-cert HKDF + `ChaCha20-Poly1305` binding |
-| **7. Data & AI (`@vibeslayer/data-ai`)** | `262,231 B` | **`262,303 B` (`1.0003×`, `+72 B`)** · `1.45 ms` chunk unseal | Real `O(1)` 64 KiB random-access `VSRA` `ChaCha20-Poly1305` chunks; raw FP32 hidden |
+| **1. Web (`webProduct`)** | `116 B` | **`233 B` (`2.01×`)** · `2.46 ms` cold unseal | `AES-256-GCM` + non-extractable WebCrypto `ECDH P-256` |
+| **2. WASM (`wasmProduct`)** | `100 B` | **`220 B` (`2.20×`)** · `0.97 ms` unseal+instantiate | `\0asm` header hidden (`false`); ABI preserved by default |
+| **3. 3D Spatial (`spatial3dProduct`)** | `581,260 B` | **`749,679 B` (`1.29×`)** · `4.71 ms` unseal | `0` raw chunks exposed (`7.9998` bits/B); `0` frame ops; 1024-chip watermark |
+| **4. Native Binary (`nativeProduct`)** | `15,992 B` | **`25,656 B` (`1.60×`)** · `2.01 ms` cold start | `.rodata` encrypted (`7.94` bits/B `.vsblob`); live `.text` SHA-256 + `PR_SET_DUMPABLE=0` |
+| **5. Desktop (`desktopProduct`)** | `67 B` rules | **`649 B` `.vsasar`** · `0.095 ms` IPC | `Ed25519`-signed bundle + native out-of-process enclave sidecar (`PR_SET_DUMPABLE=0`) |
+| **6. Mobile (`mobileProduct`)** | `44 B` shader | **`24,056 B` `libvsmobile.so`** + `143 B` `.vsmb` · `1.30 ms` | APK signing-cert HKDF + `ChaCha20-Poly1305` binding |
+| **7. Data & AI (`dataAiProduct`)** | `262,231 B` | **`262,303 B` (`1.0003×`, `+72 B`)** · `1.45 ms` chunk unseal | Real `O(1)` 64 KiB random-access `VSRA` `ChaCha20-Poly1305` chunks; raw FP32 hidden |
 
----
+## 3. Verification & Isolation Checks
 
-## 3. Independent Blind AI Subagent Battle-Test
-
-- **Iterative Red-Team Catch & Fix**: During `v0.7.0-beta.1` red-teaming, the first blind subagent blocked `6/7` arenas (`NOT RECOVERED`) and caught a client/packer bundle-splitting issue in `arena_2_wasm` (`compileCompactComputeWasm()` shipped inside the client file). Pure client runtimes were immediately separated into `src/client/*.js` with CSPRNG-padded `.vsblob` in `v0.7.0-beta.2`.
-- **Verified Blind Verdict**: Executed inside an unprivileged read-only `bwrap` sandbox against isolated arenas -> **`0 / 7` arenas recovered (`NOT RECOVERED` on all 7 products)**, `0` `\0asm` hits, `0` `glTF` hits, `0` embedded keys.
-
----
+- Pure client loaders are separated into `src/client/*.js` with CSPRNG-padded `.vsblob` outputs so build-time packers never leak into client-shipped files.
+- Automated verification confirms `0` `\0asm` magic hits, `0` `glTF` header hits, and `0` embedded keys across sealed outputs in all 7 product targets.
 
 ## 4. Build, Test & Benchmark Commands
 

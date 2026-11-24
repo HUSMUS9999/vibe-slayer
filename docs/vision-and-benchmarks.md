@@ -73,34 +73,34 @@ Reproduce with `npm --prefix benchmarks install && python3 benchmarks/run_unbias
 
 ---
 
-### B. `vibeslayer-suite` 7-Product Matrix & Early Private Obfuscator Baseline
+### B. `vibeslayer-suite` 7-Target Footprint & Unseal Matrix
 
-Canonical measurements from `npm run bench --prefix vibeslayer-suite` (matched to [`vibeslayer-suite/README.md`](../vibeslayer-suite/README.md)). For historical context, we also retain the early development comparison against `BLA v3.2.1` (`--intensity bankrupt`, a private/commercial AI-resistant chaff obfuscator benchmarked during v0.7–v0.9 development):
+Canonical measurements from `npm run bench --prefix vibeslayer-suite` (matched to [`vibeslayer-suite/README.md`](../vibeslayer-suite/README.md)):
 
-| Product Target | Raw Size | Early Private Baseline (`BLA v3.2.1`) | `Vibe-Slayer` (`vibeslayer-suite` Measured) |
+| Product Target (`vibeslayer-suite`) | Raw Size | Sealed Output & Measured Latency | Security Properties |
 | :--- | ---: | :--- | :--- |
-| **1. Web Asset (`.vspk`)** | `116 B` | `130,098 B` (`1,121.5×`); callable offline | **`233 B` (`2.01×`)** · `2.46 ms` cold unseal · `AES-256-GCM` + WebCrypto `ECDH P-256` |
-| **2. WebAssembly (`.wasm`)** | `100 B` | `6,880,116 B` (`68,801×`); `\0asm` exposed; `9.34 ms` | **`220 B` (`2.20×`)** · `0.97 ms` unseal+instantiate · `\0asm` hidden; ABI preserved |
-| **3. 3D Spatial (`.glb`)** | `581,260 B` | Unsupported (`exit 1`) | **`749,679 B` (`1.29×`)** · `4.71 ms` unseal · `7.9998` bits/B + `WM64` (or `--mode stream`, `0` geometry sent) |
-| **4. Native Linux `ELF64`** | `15,992 B` | `1,180,912 B` (`73.84×`); `.rodata` plaintext | **`25,656 B`** (`vibeslayer-suite`, `2.01 ms`) or **`169,008 B`** (`build-elf-freestanding` CET + `memfd_secret`, `0.891 ms`) |
-| **5. Desktop App Rules** | `67 B` | In-process JS chaff (visible to DevTools) | **`649 B`** `Ed25519` `.vsasar` + native C enclave (`PR_SET_DUMPABLE=0`, `0.095 ms` IPC) |
-| **6. Mobile Asset** | `44 B` | `1,188,883 B` `.so` chaff; no APK cert bind | **`24,056 B`** `libvsmobile.so` + `143 B` `.vsmb` · `1.30 ms` · APK signing-cert bound |
-| **7. AI Weights (`VSRA` raw FP32)** | `262,231 B` | `272,184 B` (`1.04×`); raw floats plaintext | **`262,303 B` (`1.0003×`)** · `1.45 ms` `O(1)` 64 KiB chunk unseal + per-lease watermark |
+| **1. Web Asset (`.vspk`)** | `116 B` | **`233 B` (`2.01×`)** · `2.46 ms` cold unseal | `AES-256-GCM` + non-extractable WebCrypto `ECDH P-256` |
+| **2. WebAssembly (`.wasm`)** | `100 B` | **`220 B` (`2.20×`)** · `0.97 ms` unseal+instantiate | `\0asm` header hidden; ABI preserved |
+| **3. 3D Spatial (`.glb`, external mesh)** | `581,260 B` | **`749,679 B` (`1.29×`)** · `4.71 ms` unseal | `7.9998` bits/B + `WM64` (or `serve-3d --mode stream`, `0` geometry sent) |
+| **4. Native Linux `ELF64`** | `15,992 B` | **`25,656 B`** (`vibeslayer-suite`, `2.01 ms`) or **`169,008 B`** (`build-elf-freestanding` `--vault`, `0.891 ms`) | `.rodata` encrypted; freestanding vault uses Intel CET + `memfd_secret` |
+| **5. Desktop App Rules** | `67 B` | **`649 B`** `Ed25519` `.vsasar` · `0.095 ms` IPC | Native C out-of-process enclave sidecar (`PR_SET_DUMPABLE=0`) |
+| **6. Mobile Asset** | `44 B` | **`24,056 B`** `libvsmobile.so` + `143 B` `.vsmb` · `1.30 ms` | APK signing-cert HKDF + `ChaCha20-Poly1305` binding |
+| **7. AI Weights (`VSRA` raw FP32)** | `262,231 B` | **`262,303 B` (`1.0003×`)** · `1.45 ms` chunk unseal | `O(1)` 64 KiB `ChaCha20-Poly1305` chunk seek + per-lease watermark |
 
 ---
 
-### C. Standalone Native Server & Runtime Throughput (`vibe-slayer` Pure Rust + C99)
+### C. Standalone Native Server & Runtime Throughput (`vibe-slayer` Rust + C99 SDK)
 
-Reproduce with `make -C vibeslayer-native-core bench`:
+Reproduce loopback server & C SDK microbenchmarks with `make -C vibeslayer-native-core bench` (measured on multi-core Linux `x86_64` with AVX-512 / AES-NI / SHA-NI):
 
 | Benchmark Workload | Measured Result | Notes |
 | :--- | :--- | :--- |
-| **`vibe-slayer serve` — ECDH P-256 + HKDF + AES-GCM Lease** | **`58,619 leases/sec`** | Pure-Rust Solinas P-256 + AES-NI GCM, zero crates (`localhost`) |
+| **`vibe-slayer serve` — ECDH P-256 + HKDF + AES-GCM Lease** | **`58,619 leases/sec`** | Pure-Rust Solinas P-256 + AES-NI GCM (`localhost`, 16 keep-alive workers) |
 | **`vibe-slayer serve` — Encrypted `.vsweb` Asset Delivery** | **`196,205 req/sec`** | Multi-threaded RFC 9112 HTTP/1.1 keep-alive worker pool (`localhost`) |
 | **C SDK (`libvibeslayer.so`) `vs_unseal_vspk3` (peak)** | **`3,294 MiB/s`** | L3-hot in-process `CMT4` + `ChaCha20-Poly1305` (Rust/C/Go/Python wire-compatible) |
-| **`serve-3d --mode stream` (`1280×820`, 52,965-tri PBR mesh)** | **`23.7 ms` RTT** (`~42 FPS` cap) | Server software PBR raster + blind 64-bit WM (`0.999` conf) + JPEG + AES-256-GCM |
-| **3D `WM64` O(1) Blind Decode (`±2` LSB coordinate noise)** | **`0.984 ms` median** (`64/64` bits) | Candidate-free correlation (`0.968` mean chip confidence) |
-| **Live Anti-Stealth Verification** | CloakBrowser 146: **`11/11` denied (`0` leases)** · Chrome 158 & Firefox 153 ESR: **`0` FP** | Verified on Web Components (`strict` & `balanced`), extracted `.mjs`, and 3D Stream/GPU |
+| **`serve-3d --mode stream` (`1280×820`, 52,965-tri external mesh)** | **`23.7 ms` RTT** (`~42 FPS` cap) | Server software PBR raster + blind 64-bit WM (`0.999` conf) + JPEG + AES-256-GCM |
+| **`VS3D` `decode-wm64` (`±2` LSB coordinate noise, external mesh)** | **`0.984 ms` median** (`64/64` bits) | `O(1)` candidate-free, reference-assisted (`--owner-ref`) correlation (`0.968` mean chip confidence) |
+| **Live Anti-Stealth Verification** | CloakBrowser 146: **denied (anomaly score `11/11`; `0` leases)** · Chrome 158 & Firefox 153 ESR: **`0` FP** | Desktop Chrome & Firefox ESR (Firefox via VeilBreak harness); excludes Safari/WebKit & mobile |
 
 ---
 

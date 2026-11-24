@@ -46,7 +46,7 @@ Empirical side-by-side probing of live **CloakBrowser 146** versus unmodified **
 1. **`VS_ATTEST_V1` Attestation vs. Authenticated Sessions**:
    - The browser-computed `VS_ATTEST_V1` SHA-256 digest binds probe outputs to the server-issued nonce and `User-Agent` to catch naive replay or header tampering. Because the digest algorithm is public and unkeyed on the client, it is **telemetry integrity**, not a secret client proof of possession. When stronger request authorization is required, enable `--auth-hmac-key` (or place behind your authenticated application session / [`vibeslayer-policy-kit`](../vibeslayer-policy-kit/README.md)).
 2. **Privacy-Hardened Browsers & Open DevTools**:
-   - `--anti-stealth strict` (`>= 2`) will intentionally flag browsers that inject synthetic Canvas, Audio, or DOMRect noise (e.g., Brave Shields Strict, Tor Browser, LibreWolf, Firefox `privacy.resistFingerprinting`). For consumer-facing sites where privacy browsers must pass, use `--preset balanced` (`--anti-stealth balanced`, threshold `>= 4`).
+   - `--anti-stealth strict` (`>= 2`) will intentionally flag browsers that inject synthetic Canvas, Audio, or DOMRect noise. `--preset balanced` (`--anti-stealth balanced`, threshold `>= 4`) tolerates single-API farbling (score `2`), whereas multi-API privacy modes (Tor Browser, LibreWolf, Firefox `privacy.resistFingerprinting`, Brave Shields Aggressive) can score `4–6` and trigger **both** `strict` and `balanced` — use `--anti-stealth off` if those browsers must pass.
    - `--anti-cdp on` intentionally traps DevTools `Runtime.enable`; legitimate developers or users with DevTools open will trigger the trap. Disable via `--anti-cdp off` in development or staging environments.
 3. **Native ELF64 Memory Boundaries (`wrap-elf` vs. `build-elf-freestanding`)**:
    - `wrap-elf` (used by repository auto-protect) executes the decrypted payload via a sealed `memfd_create` + `execveat` inside a static-PIE Intel CET wrapper (`0` `PT_INTERP`/`DT_NEEDED`, `LD_*` env scrubbing).
@@ -84,7 +84,7 @@ Reproducible locally with `make -C vibeslayer-native-core bench` and `npm run be
 ## 5. Reproducing All Audits & Benchmarks Locally
 
 ```bash
-# Build Linux ELF64 binary and C SDK shared library (0 warnings)
+# Build Linux ELF64 binary and C99 SDK shared library
 make -C vibeslayer-native-core all
 
 # Rust unit tests (crypto vectors, AES-NI/Solinas parity, JPEG/PNG, WM64, presets, NL parser)
@@ -93,7 +93,7 @@ cargo test --manifest-path vibeslayer-native-core/rust_core/Cargo.toml --release
 # Full native + polyglot + adversarial red-team + proxy compliance test suite
 make -C vibeslayer-native-core test
 
-# Optional SOTA throughput microbenchmarks
+# Optional loopback throughput microbenchmarks
 make -C vibeslayer-native-core bench
 
 # Companion JavaScript packages (including Web Component antiStealth tests)

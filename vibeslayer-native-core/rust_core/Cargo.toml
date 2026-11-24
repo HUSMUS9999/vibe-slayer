@@ -2,6 +2,9 @@
 name = "vibeslayer-core"
 version = "1.0.0-beta.3"
 edition = "2021"
+description = "Standalone Rust CLI and RFC 9112 runtime server for cryptographic web, 3D stream, ELF64, and VSPK3 asset protection"
+license = "MIT"
+repository = "https://github.com/HUSMUS9999/vibe-slayer"
 
 [lib]
 name = "vibeslayer_core"

@@ -2,7 +2,7 @@
 
 [← Root README](../README.md) · [CLI & Configuration](../docs/cli-and-configuration.md) · [Native Binaries & SDKs](../docs/native-binaries-and-sdks.md)
 
-Zero-Node.js compiled **Rust + C99** CLI, RFC 9112 live HTTP/1.1 runtime servers (`serve` & `serve-3d`), and wire-compatible native SDKs for **Rust, C/C++, Go, and Python** — built with **zero external Rust crates** and **zero compiler warnings**.
+Standalone **Rust** CLI (`vibe-slayer`), RFC 9112 live HTTP/1.1 runtime servers (`serve` & `serve-3d`), and wire-compatible **C99**, Go, and Python `VSPK2`/`VSPK3` SDKs — built with zero external Rust crates.
 
 ## Compiled Native Artifacts (`bin/`)
 
@@ -23,7 +23,7 @@ All four native SDKs (`rust_core`, `sdk_c`, `sdk_go`, `sdk_python`) share the ex
 ## Build & Verify
 
 ```bash
-# Build native host Linux binary + C SDK (zero crates, zero compiler warnings)
+# Build native host Linux binary + C99 SDK
 make -C vibeslayer-native-core all
 
 # Optional: cross-compile Windows PE32+ artifacts (requires x86_64-w64-mingw32-gcc + x86_64-pc-windows-gnu)
@@ -33,6 +33,6 @@ make -C vibeslayer-native-core windows
 cargo test --manifest-path vibeslayer-native-core/rust_core/Cargo.toml --release
 make -C vibeslayer-native-core test
 
-# Optional: run high-throughput loopback SOTA benchmarks
+# Optional: run loopback throughput microbenchmarks
 make -C vibeslayer-native-core bench
 ```

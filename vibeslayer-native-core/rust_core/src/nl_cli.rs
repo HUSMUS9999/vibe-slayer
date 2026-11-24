@@ -1006,6 +1006,7 @@ Examples you can try:\n\
     let mut reasons = vec![
         "Auto-classifies code, secrets, .wasm, AI weights (VSPK3), Linux ELF64 binaries (static-PIE CET), and .glb models".to_string(),
     ];
+    let custom_out = out_path.clone();
     if let Some(dest) = out_path {
         argv.push("-o".to_string());
         argv.push(dest);
@@ -1021,10 +1022,34 @@ Examples you can try:\n\
         argv.push("--seal-all".to_string());
         reasons.push("--seal-all: encrypts even public scaffold files (README, CSS, images)".to_string());
     }
-    if has_any(&low, &["vault", "memfd_secret", "small secret"]) {
+    let is_vault = has_any(&low, &["vault", "memfd_secret", "small secret"]);
+    if is_vault {
         argv.push("--vault".to_string());
         reasons.push("--vault: packs small secret (<=4096 B) into a freestanding memfd_secret ELF vault".to_string());
     }
+
+    let next_target = if let Some(dest) = custom_out {
+        dest
+    } else if is_vault {
+        format!("{target}.vault.elf")
+    } else {
+        let p = std::path::Path::new(&target);
+        let tlow = target.to_ascii_lowercase();
+        if tlow.ends_with(".glb") {
+            format!("{target}.vs3d")
+        } else if p.is_dir() {
+            format!("{target}-protected")
+        } else if has_any(&low, &["binary", "executable", "elf"])
+            || tlow.ends_with(".elf")
+            || tlow.ends_with(".out")
+        {
+            format!("{target}.protected")
+        } else if p.extension().is_some() {
+            format!("{target}.vspk3")
+        } else {
+            format!("{target}-protected")
+        }
+    };
 
     Ok(NaturalPlan {
         input: trimmed.to_string(),
@@ -1032,7 +1057,7 @@ Examples you can try:\n\
         goal: format!("Auto-protect {target} and run immediate cryptographic self-verification"),
         argv,
         reasons,
-        next_command: Some(format!("./vibe-slayer test {target}-protected")),
+        next_command: Some(format!("./vibe-slayer test {next_target}")),
     })
 }
 

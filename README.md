@@ -138,19 +138,54 @@ flowchart TB
 
 ---
 
-## Measured Benchmarks
+## Unbiased Benchmarks vs. Famous Tools
 
-All measurements were taken on identical unprotected inputs against **`BLA v3.2.1 --intensity bankrupt`** and raw baselines (methodology in **[Vision & Benchmarks](docs/vision-and-benchmarks.md)**):
+Every table below was measured live on identical real inputs on the same Linux `x86_64` host (`python3 benchmarks/run_unbiased_benchmark.py`, raw data in [`benchmarks/results.json`](benchmarks/results.json)). Honest trade-offs — including where other tools win on size, speed, or static-CDN compatibility — are reported directly.
+
+### 1. JavaScript Protection (`878 B` realistic business-logic pricing & license module)
+
+| Tool | Output Size | Ratio | Build Time | Literal Secret Hidden? | Offline Callable? | Static CDN (No Server)? | Honest Trade-Off |
+| :--- | ---: | :-: | :-: | :-: | :-: | :-: | :--- |
+| **Raw Unprotected JS** | `878 B` | `1.00×` | `0.0 ms` | No | Yes | **Yes** | Baseline control; zero protection |
+| **`esbuild` (`--minify`)** | **`527 B`** | **`0.60×`** | `77.8 ms` | No | Yes | **Yes** | Smallest output & static-CDN ready; minification only |
+| **`terser` (`compress+mangle`)** | `534 B` | `0.61×` | `91.6 ms` | No | Yes | **Yes** | Standard production minifier; zero offline defense |
+| **`javascript-obfuscator` (default)** | `2,096 B` | `2.39×` | `317.1 ms` | No | Yes | **Yes** | Static-CDN compatible; 1-line `require()` calls it offline |
+| **`javascript-obfuscator` (high)** | `5,633 B` | `6.42×` | `368.1 ms` | **Yes** | Yes | **Yes** | Static-CDN compatible & hides string literals; still 100% callable offline |
+| **`js-confuser` (`medium`)** | `86,474 B` | `98.49×` | `1,045.5 ms` | **Yes** | Yes | **Yes** | Heavy AST/control-flow obfuscation; still callable offline |
+| **`Vibe-Slayer` (`.vsweb fast`)** | **`906 B`** | **`1.03×`** | **`11.3 ms`** | **Yes** | **No (`0` bits)** | No (needs `serve`) | Pure AES-256-GCM (`+28 B` overhead); requires Vibe-Slayer runtime server |
+| **`Vibe-Slayer` (`.vsweb paranoid`)** | `102,118 B` | `116.31×` | `14.4 ms` | **Yes** | **No (`0` bits)** | No (needs `serve`) | Adds `96 KB` decoy VM + offline-dead `rtKey` JS + inline anti-stealth guard; requires server |
+
+### 2. Native Linux `ELF64` Binary Protection (`15,992 B` `gcc -O2` C binary)
+
+| Tool | Binary Size | Ratio | Cold Start (Median) | `.rodata` Secret Leaked? | Trivially Unpackable? | Honest Trade-Off |
+| :--- | ---: | :-: | :-: | :-: | :-: | :--- |
+| **Raw `gcc -O2` ELF64** | `15,992 B` | `1.00×` | `0.524 ms` | Yes | Yes | Baseline unstripped binary |
+| **`strip --strip-all`** | `14,480 B` | `0.91×` | **`0.475 ms`** | Yes | Yes | Fastest & zero runtime cost; leaves `.rodata` & `.text` plaintext |
+| **`UPX 4.2.4` (`--best`)** | **`5,348 B`** | **`0.33×`** | `0.584 ms` | **No** | Yes (`upx -d` in `10.9 ms`) | Best compression (shrinks binary `67%`); trivially unpacked by `upx -d` |
+| **`Vibe-Slayer` (Static-PIE + CET)** | `277,640 B` | `17.36×` | `15.138 ms`* | **No** | **No** | `0` `PT_INTERP`/`DT_NEEDED`, Intel CET + `memfd_secret`; adds ~`260 KB` static-PIE stub + launcher overhead |
+
+*\*Measured end-to-end via `./vibe-slayer run` CLI process launcher; direct in-memory FD-3 unseal is ~`0.89 ms`.*
+
+### 3. AI Model Weights (`.safetensors`, `262,240 B` FP32 tensor)
+
+| Tool | Output Size | Ratio | CLI Unseal / Read (Median) | Raw FP32 Weights Exposed? | Honest Trade-Off |
+| :--- | ---: | :-: | :-: | :-: | :--- |
+| **Raw `.safetensors`** | `262,240 B` | `1.0000×` | **`0.024 ms`** | Yes | Zero-copy mmap baseline; 100% plaintext weights on disk |
+| **OpenSSL Whole-File AES-256** | `262,256 B` | `1.0001×` | `5.057 ms` | **No** | Fast sequential CLI decrypt; `O(N)` full-file decrypt required for any slice |
+| **`Vibe-Slayer` (`VSPK3` 64 KiB AEAD)** | `263,260 B` | `1.0039×` | `13.791 ms`* | **No** | `+1,020 B` overhead; enables `O(1)` 64 KiB chunked random-access AEAD via C/Rust SDK (~`3,294 MiB/s`) |
+
+*\*CLI full-file unseal time includes Rust CLI startup + key-committing AEAD verification.*
+
+### 4. Additional Measured Domain Baselines (`BLA v3.2.1`, 3D & Anti-Stealth)
+
+Full methodology in **[Vision & Benchmarks](docs/vision-and-benchmarks.md)** (and live 19-browser anti-stealth suite in **[VeilBreak](https://github.com/HUSMUS9999/veilbreak)**):
 
 | Target | Raw Size | `BLA v3.2.1` (`bankrupt`) | `Vibe-Slayer` (Measured) |
 | :--- | ---: | :--- | :--- |
-| **Web JS Bundle** | `116 B` | `130,098 B` (`1,121.5x`); callable offline via 1-line import | **`233 B` (`2.01x`, `558x` smaller)**; AES-256-GCM + non-extractable ECDH P-256; `2.11 ms` unseal; `0` offline bits |
-| **WASM Module** | `100 B` | `6,880,116 B` (`68,801x`); `\0asm` exposed; `9.34 ms` boot | **`220 B` (`2.20x`, `31,273x` smaller)**; `\0asm` hidden; **`0.91 ms`** unseal+instantiate (`10.2x` faster) |
-| **3D `.glb` Model** | `581 KB` | **Unsupported (`exit 1`)** | **`750 KB` (`1.29x`)** cooked `VS3D` + `64/64` `WM64` (`0.984 ms` decode under `+/-2` LSB noise); or **`--mode stream`** (`0` geometry sent, `23.7 ms` RTT at `1280x820`) |
-| **Native Linux `ELF64`** | `16.0 KB` | `1,180.9 KB` (`73.8x`); `.rodata` plaintext; `1,952` `.text` tokens | **`169.0 KB` (`6.99x` smaller)**; `0` `PT_INTERP`/`DT_NEEDED`; Intel CET + `memfd_secret`; `0.891 ms` cold start; **`902,988` live `.text` tokens (`462.6x`)** |
-| **AI Weights (`.safetensors`)** | `262 KB` | `272 KB` (`1.04x`); raw FP32 weights **100% plaintext** | **`262.3 KB` (`1.0003x`)**; `O(1)` 64 KiB random-access AEAD (`1.56 ms`); `0` raw floats exposed |
+| **WASM Module** | `100 B` | `6,880,116 B` (`68,801×`); `\0asm` exposed; `9.34 ms` boot | **`220 B` (`2.20×`, `31,273×` smaller)**; `\0asm` hidden; **`0.91 ms`** unseal+instantiate (`10.2×` faster) |
+| **3D `.glb` Model** | `581 KB` | **Unsupported (`exit 1`)** | **`750 KB` (`1.29×`)** cooked `VS3D` + `64/64` `WM64` (`0.984 ms` decode); or **`--mode stream`** (`0` geometry sent, `23.7 ms` RTT at `1280×820`) |
 | **Runtime Server Throughput** | — | N/A | **`58,619` ECDH leases/s** · **`196,205` `.vsweb` req/s** · **`3,294 MiB/s`** C SDK `VSPK3` unseal |
-| **CloakBrowser 146 vs. Chrome 158** | — | N/A | **CloakBrowser 146: `100%` Denied (`11/11`, `0` leases, `0` Web Components)** · **Chrome 158: `0/11` (`0` false positives)** |
+| **Live Browser Anti-Stealth** | — | N/A | **Clean Chrome 158 & Firefox 153 ESR: `0%` FP** · **CloakBrowser 146: `100%` Denied (`11/11`, `0` leases)** |
 
 ---
 
@@ -211,6 +246,9 @@ make -C vibeslayer-native-core test
 # 4. Run companion Node.js suites (including Web Component antiStealth tests)
 npm test --prefix vibeslayer-suite
 npm test --prefix vibeslayer-policy-kit
+
+# 5. Reproduce the unbiased multi-domain benchmark vs. esbuild, terser, javascript-obfuscator, js-confuser, strip, UPX & OpenSSL
+python3 benchmarks/run_unbiased_benchmark.py
 ```
 
 ---

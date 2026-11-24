@@ -1,0 +1,164 @@
+{
+  "version": "1.0.0-beta.3",
+  "timestamp": "2026-11-24T12:08:47Z",
+  "methodology": "Identical real inputs run on the same Linux x86_64 host against real installed versions of esbuild, terser, javascript-obfuscator, js-confuser, strip, UPX 4.2.4, OpenSSL, and Vibe-Slayer.",
+  "javascript": [
+    {
+      "tool": "Raw Unprotected JS",
+      "sizeBytes": 878,
+      "ratio": 1.0,
+      "buildMs": 0.0,
+      "offlineExecMs": 0.448,
+      "plaintextSecretInFile": true,
+      "callableOffline": true,
+      "staticCdnCompatible": true,
+      "honestNote": "Baseline control; zero build/runtime overhead, 100% readable source"
+    },
+    {
+      "tool": "esbuild (--minify)",
+      "sizeBytes": 527,
+      "ratio": 0.6,
+      "buildMs": 77.8,
+      "offlineExecMs": 0.521,
+      "plaintextSecretInFile": true,
+      "callableOffline": true,
+      "staticCdnCompatible": true,
+      "honestNote": "Fastest build & smallest output; minification only (not security)"
+    },
+    {
+      "tool": "terser (compress + mangle)",
+      "sizeBytes": 534,
+      "ratio": 0.61,
+      "buildMs": 91.6,
+      "offlineExecMs": 0.411,
+      "plaintextSecretInFile": true,
+      "callableOffline": true,
+      "staticCdnCompatible": true,
+      "honestNote": "Standard production minifier; smallest static bundle, zero tamper/offline defense"
+    },
+    {
+      "tool": "javascript-obfuscator (default)",
+      "sizeBytes": 2096,
+      "ratio": 2.39,
+      "buildMs": 317.1,
+      "offlineExecMs": 0.753,
+      "plaintextSecretInFile": true,
+      "callableOffline": true,
+      "staticCdnCompatible": true,
+      "honestNote": "Works on static CDNs without a server; hides literal strings statically, but fully callable offline via 1-line require()"
+    },
+    {
+      "tool": "javascript-obfuscator (high)",
+      "sizeBytes": 5633,
+      "ratio": 6.42,
+      "buildMs": 368.1,
+      "offlineExecMs": 1.679,
+      "plaintextSecretInFile": false,
+      "callableOffline": true,
+      "staticCdnCompatible": true,
+      "honestNote": "Works on static CDNs without a server; hides literal strings statically, but fully callable offline via 1-line require()"
+    },
+    {
+      "tool": "js-confuser (medium)",
+      "sizeBytes": 86474,
+      "ratio": 98.49,
+      "buildMs": 1045.5,
+      "offlineExecMs": 60.128,
+      "plaintextSecretInFile": false,
+      "callableOffline": true,
+      "staticCdnCompatible": true,
+      "honestNote": "Works on static CDNs without a server; heavy control-flow bloat, still callable offline"
+    },
+    {
+      "tool": "Vibe-Slayer (.vsweb fast)",
+      "sizeBytes": 906,
+      "ratio": 1.03,
+      "buildMs": 11.3,
+      "offlineExecMs": null,
+      "plaintextSecretInFile": false,
+      "callableOffline": false,
+      "staticCdnCompatible": false,
+      "honestNote": "Pure AES-256-GCM ciphertext (0 offline bits, minimal overhead); requires Vibe-Slayer runtime server"
+    },
+    {
+      "tool": "Vibe-Slayer (.vsweb paranoid)",
+      "sizeBytes": 102118,
+      "ratio": 116.31,
+      "buildMs": 14.4,
+      "offlineExecMs": null,
+      "plaintextSecretInFile": false,
+      "callableOffline": false,
+      "staticCdnCompatible": false,
+      "honestNote": "AES-256-GCM + offline-dead rtKey JS + 96 KB decoy VM + inline anti-stealth guard; requires runtime server"
+    }
+  ],
+  "elf64": [
+    {
+      "tool": "Raw gcc -O2 ELF64",
+      "sizeBytes": 15992,
+      "ratio": 1.0,
+      "coldStartMs": 0.524,
+      "functionalOk": true,
+      "plaintextRodataLeaked": true,
+      "triviallyUnpackable": true,
+      "honestNote": "Baseline unstripped ELF64; symbols & .rodata strings fully exposed"
+    },
+    {
+      "tool": "strip --strip-all",
+      "sizeBytes": 14480,
+      "ratio": 0.91,
+      "coldStartMs": 0.475,
+      "functionalOk": true,
+      "plaintextRodataLeaked": true,
+      "triviallyUnpackable": true,
+      "honestNote": "Smaller & zero runtime overhead; strips symbol table only \u2014 .rodata & disassembly remain 100% plaintext"
+    },
+    {
+      "tool": "UPX 4.2.4 (--best)",
+      "sizeBytes": 5348,
+      "ratio": 0.33,
+      "coldStartMs": 0.584,
+      "functionalOk": true,
+      "plaintextRodataLeaked": false,
+      "triviallyUnpackable": true,
+      "unpackMs": 10.91,
+      "honestNote": "Best compression (shrinks binary); hides raw strings at rest, but `upx -d` restores exact plaintext binary in 10.91 ms"
+    },
+    {
+      "tool": "Vibe-Slayer (Static-PIE + CET)",
+      "sizeBytes": 277640,
+      "ratio": 17.36,
+      "coldStartMs": 15.138,
+      "functionalOk": true,
+      "plaintextRodataLeaked": false,
+      "triviallyUnpackable": false,
+      "honestNote": "0 PT_INTERP/DT_NEEDED, 0 plaintext .rodata, CET + memfd_secret; trade-off: adds ~150 KB static-PIE stub + lease key runner"
+    }
+  ],
+  "ai_weights": [
+    {
+      "tool": "Raw .safetensors",
+      "sizeBytes": 262240,
+      "ratio": 1.0,
+      "randomAccess64kMs": 0.024,
+      "rawWeightsExposed": true,
+      "honestNote": "Zero-copy mmap baseline; 100% plaintext FP32 weights readable on disk"
+    },
+    {
+      "tool": "OpenSSL Whole-File AES-256",
+      "sizeBytes": 262256,
+      "ratio": 1.0001,
+      "randomAccess64kMs": 5.057,
+      "rawWeightsExposed": false,
+      "honestNote": "Standard at-rest encryption; O(N) sequential decrypt required even to read 1 tensor slice"
+    },
+    {
+      "tool": "Vibe-Slayer VSPK3 (64 KiB AEAD)",
+      "sizeBytes": 263260,
+      "ratio": 1.0039,
+      "randomAccess64kMs": 13.791,
+      "rawWeightsExposed": false,
+      "honestNote": "Headerless key-committing AEAD + O(1) 64 KiB chunk seek via C/Rust SDK (~0.1ms in-process; CLI time includes process spawn)"
+    }
+  ]
+}

@@ -1,0 +1,131 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="860" height="374" viewBox="0 0 860 374" role="img" aria-label="Vibe-Slayer Multi-Domain Protection Architecture">
+  <defs>
+    <marker id="arr" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+      <path d="M 1 1.5 L 8.5 5 L 1 8.5 z" fill="#64748B"/>
+    </marker>
+    <marker id="arr-acc" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+      <path d="M 1 1.5 L 8.5 5 L 1 8.5 z" fill="#0284C7"/>
+    </marker>
+    <marker id="arr-ok" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+      <path d="M 1 1.5 L 8.5 5 L 1 8.5 z" fill="#16A34A"/>
+    </marker>
+    <marker id="arr-deny" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+      <path d="M 1 1.5 L 8.5 5 L 1 8.5 z" fill="#DC2626"/>
+    </marker>
+    <style>
+      .card { fill: #F8FAFC; stroke: #CBD5E1; stroke-width: 1.25; }
+      .sub  { fill: #FFFFFF; stroke: #CBD5E1; stroke-width: 1.15; }
+      .acc  { fill: #E0F2FE; stroke: #0284C7; stroke-width: 1.35; }
+      .ok   { fill: #DCFCE7; stroke: #16A34A; stroke-width: 1.35; }
+      .deny { fill: #FEE2E2; stroke: #DC2626; stroke-width: 1.35; }
+      .t    { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; font-size: 12.5px; font-weight: 700; fill: #0F172A; text-anchor: middle; }
+      .tl   { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; font-size: 12px; font-weight: 700; fill: #0F172A; text-anchor: start; }
+      .b    { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; font-size: 10.6px; fill: #334155; text-anchor: middle; }
+      .m    { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; font-size: 10px; fill: #64748B; text-anchor: middle; }
+      .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 10.2px; font-weight: 600; fill: #0369A1; text-anchor: middle; }
+      .ok-t { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; font-size: 11.2px; font-weight: 700; fill: #15803D; text-anchor: middle; }
+      .dn-t { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; font-size: 11.2px; font-weight: 700; fill: #B91C1C; text-anchor: middle; }
+      .kicker { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; font-size: 9.5px; font-weight: 700; letter-spacing: 0.7px; fill: #0369A1; text-anchor: middle; }
+      .e    { fill: none; stroke: #64748B; stroke-width: 1.35; }
+      .ea   { fill: none; stroke: #0284C7; stroke-width: 1.45; }
+      .eok  { fill: none; stroke: #16A34A; stroke-width: 1.45; }
+      .edn  { fill: none; stroke: #DC2626; stroke-width: 1.45; }
+    </style>
+  </defs>
+
+  <!-- Top Hub: Standalone CLI -->
+  <rect class="acc" x="150" y="14" width="560" height="54" rx="9"/>
+  <text class="t" x="430" y="36">vibe-slayer — Standalone Rust + C99 Binary (0 Crates)</text>
+  <text class="m" x="430" y="54">Natural-Language CLI (ask / explain)  ·  Explicit CLI  ·  JSON Config Presets (fast / balanced / paranoid)</text>
+
+  <!-- Branch connectors to 3 domain pillars -->
+  <line class="ea" x1="430" y1="68" x2="430" y2="86"/>
+  <line class="ea" x1="150" y1="86" x2="710" y2="86"/>
+  <line class="ea" x1="150" y1="86" x2="150" y2="102" marker-end="url(#arr-acc)"/>
+  <line class="ea" x1="430" y1="86" x2="430" y2="102" marker-end="url(#arr-acc)"/>
+  <line class="ea" x1="710" y1="86" x2="710" y2="102" marker-end="url(#arr-acc)"/>
+
+  <!-- ==================== COLUMN 1: WEBSITES & WEB COMPONENTS ==================== -->
+  <rect class="card" x="18" y="106" width="264" height="254" rx="10"/>
+  <text class="kicker" x="150" y="126">LIVE WEBSITES &amp; WEB COMPONENTS</text>
+
+  <rect class="sub" x="34" y="138" width="232" height="46" rx="7"/>
+  <text class="mono" x="150" y="157">website --preset paranoid</text>
+  <text class="m" x="150" y="173">.vsweb AES-256-GCM + offline-dead rtKey JS</text>
+
+  <line class="e" x1="150" y1="184" x2="150" y2="202" marker-end="url(#arr)"/>
+
+  <rect class="sub" x="34" y="206" width="232" height="52" rx="7"/>
+  <text class="t" x="150" y="226">serve (RFC 9112 Rust HTTP/1.1)</text>
+  <text class="m" x="150" y="242">ECDH P-256 Leases · Anti-CDP · Anti-Stealth</text>
+
+  <line class="ea" x1="150" y1="258" x2="150" y2="278" marker-end="url(#arr-acc)"/>
+
+  <rect class="ok" x="34" y="282" width="232" height="62" rx="7"/>
+  <text class="ok-t" x="150" y="304">Verified Browser WebCrypto</text>
+  <text class="m" x="150" y="320">extractable: false  ·  0 offline plaintext bits</text>
+  <text class="m" x="150" y="334">Shadow DOM &amp; Custom Elements</text>
+
+  <!-- ==================== COLUMN 2: 3D MODELS (.GLB) ==================== -->
+  <rect class="card" x="298" y="106" width="264" height="254" rx="10"/>
+  <text class="kicker" x="430" y="126">INTERACTIVE 3D MODELS (.GLB)</text>
+
+  <rect class="sub" x="314" y="138" width="232" height="46" rx="7"/>
+  <text class="mono" x="430" y="157">shield-3d --preset paranoid</text>
+  <text class="m" x="430" y="173">Cooked VS3D + Scrambled Atlas + .vsshield.key</text>
+
+  <!-- Split to stream vs gpu -->
+  <line class="e" x1="430" y1="184" x2="430" y2="195"/>
+  <line class="e" x1="370" y1="195" x2="490" y2="195"/>
+  <line class="ea" x1="370" y1="195" x2="370" y2="205" marker-end="url(#arr-acc)"/>
+  <line class="e" x1="490" y1="195" x2="490" y2="205" marker-end="url(#arr)"/>
+
+  <rect class="acc" x="312" y="208" width="114" height="56" rx="7"/>
+  <text class="mono" x="369" y="227">--mode stream</text>
+  <text class="m" x="369" y="242">0 vertices / 0 WebGL</text>
+  <text class="m" x="369" y="255">AES-GCM + 64-bit WM</text>
+
+  <rect class="sub" x="434" y="208" width="114" height="56" rx="7"/>
+  <text class="mono" x="491" y="227">--mode gpu</text>
+  <text class="m" x="491" y="242">60 FPS WebGL2</text>
+  <text class="m" x="491" y="255">Shader Cipher + WM</text>
+
+  <line class="ea" x1="370" y1="264" x2="370" y2="278" marker-end="url(#arr-acc)"/>
+  <line class="e" x1="490" y1="264" x2="490" y2="278" marker-end="url(#arr)"/>
+
+  <rect class="ok" x="314" y="282" width="232" height="62" rx="7"/>
+  <text class="ok-t" x="430" y="304">Zero-Geometry Canvas2D / WebGL2</text>
+  <text class="m" x="430" y="320">Per-session encrypted frames</text>
+  <text class="m" x="430" y="334">Blind 64-bit forensic buyer watermark</text>
+
+  <!-- ==================== COLUMN 3: REPOS, ELF64 & AI WEIGHTS ==================== -->
+  <rect class="card" x="578" y="106" width="264" height="254" rx="10"/>
+  <text class="kicker" x="710" y="126">REPOS, ELF64 &amp; AI WEIGHTS</text>
+
+  <rect class="sub" x="594" y="138" width="232" height="46" rx="7"/>
+  <text class="mono" x="710" y="157">scan / protect / test / unseal</text>
+  <text class="m" x="710" y="173">Auto-classifies code, .env, .wasm, .safetensors</text>
+
+  <line class="e" x1="710" y1="184" x2="710" y2="195"/>
+  <line class="e" x1="650" y1="195" x2="770" y2="195"/>
+  <line class="e" x1="650" y1="195" x2="650" y2="205" marker-end="url(#arr)"/>
+  <line class="e" x1="770" y1="195" x2="770" y2="205" marker-end="url(#arr)"/>
+
+  <rect class="sub" x="592" y="208" width="114" height="56" rx="7"/>
+  <text class="t" x="649" y="227">VSPK3 Vault</text>
+  <text class="m" x="649" y="242">CMT4 + ChaCha20</text>
+  <text class="m" x="649" y="255">O(1) 64 KiB AI AEAD</text>
+
+  <rect class="sub" x="714" y="208" width="114" height="56" rx="7"/>
+  <text class="t" x="771" y="227">Static-PIE ELF64</text>
+  <text class="m" x="771" y="242">0 PT_INTERP/NEEDED</text>
+  <text class="m" x="771" y="255">CET + memfd_secret</text>
+
+  <line class="e" x1="650" y1="264" x2="650" y2="278" marker-end="url(#arr)"/>
+  <line class="e" x1="770" y1="264" x2="770" y2="278" marker-end="url(#arr)"/>
+
+  <rect class="ok" x="594" y="282" width="232" height="62" rx="7"/>
+  <text class="ok-t" x="710" y="304">Wire-Compatible Polyglot SDKs</text>
+  <text class="m" x="710" y="320">Rust · C/C++ · Go · Python · Zero-Dep JS</text>
+  <text class="m" x="710" y="334">3,294 MiB/s C SDK VSPK3 unseal</text>
+</svg>

@@ -96,33 +96,13 @@ No flags to memorize — preview safely (`dry-run`) with `explain`, or run immed
 
 ## Architecture & Packages
 
-```mermaid
-flowchart TB
-    CLI["vibe-slayer (Standalone Rust Binary, 0 Crates + Natural-Language ask/explain)"]
-
-    subgraph WEB["Live Websites & Web Components"]
-        W1["website --preset paranoid"] --> W2[".vsweb AES-256-GCM Blobs + Offline-Dead rtKey JS + Inline Anti-Stealth Guard"]
-        W2 --> W3["serve (RFC 9112 Rust HTTP/1.1)"]
-        W3 -->|"ECDH P-256 + Anti-CDP + Tier-4 Attest"| W4["Browser WebCrypto (extractable: false)"]
-    end
-
-    subgraph D3["3D Models (.glb)"]
-        G1["shield-3d --preset paranoid"] --> G2["Encrypted Geometry + Scrambled Tile Atlas + External .vsshield.key"]
-        G2 --> G3["serve-3d --mode stream (default paranoid)"]
-        G2 --> G4["serve-3d --mode gpu (60 FPS WebGL2)"]
-        G3 -->|"AES-256-GCM JPEG Frames + Blind 64-bit WM"| G5["Zero-Geometry Canvas2D Client"]
-    end
-
-    subgraph REPO["Repos, Binaries & SDKs"]
-        R1["protect / scan / test / unseal"] --> R2["VSPK3 (Code, .env, .wasm, AI Weights)"]
-        R1 --> R3["Static-PIE ELF64 Wrapper (CET + memfd_secret)"]
-        R2 --> R4["Wire-Compatible SDKs: Rust, C/C++, Go, Python, JS"]
-    end
-
-    CLI --> WEB
-    CLI --> D3
-    CLI --> REPO
-```
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/vibeslayer-arch-dark.svg" />
+    <source media="(prefers-color-scheme: light)" srcset="assets/vibeslayer-arch-light.svg" />
+    <img src="assets/vibeslayer-arch-light.svg" alt="Vibe-Slayer Multi-Domain Protection Architecture" width="100%" />
+  </picture>
+</p>
 
 | Component | Path | Language & Dependencies | Role |
 | :--- | :--- | :--- | :--- |

@@ -1153,6 +1153,8 @@ fn compile_freestanding_stub(
     let status = Command::new("gcc")
         .args([
             "-O1",
+            "-U_FORTIFY_SOURCE",
+            "-D_FORTIFY_SOURCE=0",
             "-pipe",
             "-s",
             "-fno-var-tracking",

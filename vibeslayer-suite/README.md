@@ -1,0 +1,55 @@
+# `vibeslayer-suite` (`v0.8.0-beta.2`)
+
+[← Root README](../README.md) · [Web & Web Components Guide](../docs/web-and-web-components.md) · [Threat Model](../docs/threat-model-and-benchmarks.md)
+
+End-to-end multi-platform protection suite for **client-downloaded assets & local native-speed execution** across **7 product targets**, plus a unified CLI (`cli/vs.js`), programmatic policy/lease authority (`src/index.js`), and Tier-4 **`antiStealth`** CloakBrowser denial for Web Components (`webProduct.createBrowserEphemeralSession`, `unsealWebAssetWithSession`, `collectStealthAttestation`, `verifyStealthAttestation`).
+
+---
+
+## 1. How Client-Downloaded Assets Stay Smooth (`0` Frame Overhead) Without Being Stolen or Re-Hosted
+
+1. **Offline / CDN / Bundle / APK / ASAR Theft -> Standard 256-Bit AEAD (`AES-256-GCM` & `RFC 8439 ChaCha20-Poly1305`)**:
+   - Every shipped client file (`.vspk`, `.vs3d.vspk`, `.vsasar`, `.vsmb`, `.vsra`, ELF `.vsblob`) contains **zero key material** and **zero plaintext headers/tails** (`0` `\0asm` bytes, `0` `glTF` strings).
+   - Static scraping or offline AI reverse engineering of the downloaded bundle recovers **0 plaintext bytes**.
+2. **"Only Run As Supposed To Run" -> Ephemeral Non-Extractable Keys & Cryptographic Environment Binding**:
+   - **Web / WASM / 3D (`src/client/*.js`)**: Generates an ephemeral `ECDH P-256` keypair inside WebCrypto with **`extractable: false`**, derives a non-extractable `HKDF-SHA256` -> `AES-GCM` `unwrapKey` key, and unwraps the content key directly into a non-extractable `CryptoKey` (`extractable: false`) bound via `AAD` to `(product, assetId, origin)`.
+   - **Native Binary (`vs_protected_elf`)**: Hashes its own live mapped `PF_X` executable code segment in RAM (`__ehdr_start`) into `HKDF-SHA256` before `ChaCha20-Poly1305` authentication (`0` `if (debugged)` branches to NOP out; patching 1 byte of `.text` or placing a `0xCC` breakpoint fails MAC with `rc=3`), sets `prctl(PR_SET_DUMPABLE, 0)`, and maps secrets with `MADV_DONTDUMP`.
+   - **Desktop (`vs_desktop_enclave` + `vs_desktop_enclave_win64.exe`)**: Verifies `Ed25519` bundle signatures and runs sensitive rules inside an out-of-process native C sidecar (`PR_SET_DUMPABLE=0`) so Electron/Tauri Renderer DevTools (`Ctrl+Shift+I`) never holds master secrets.
+   - **Mobile (`libvsmobile.so`)**: Compiled JNI/C shared library binding `ChaCha20-Poly1305` asset decryption via `HKDF-SHA256` to `(packageName, runtimeApkSigningCertSha256, assetId)`—repackaged APKs fail with `MOBILE_AUTH_TAG_FAILED` (`rc=2`).
+3. **Live Authorized-Session Extraction Mitigation -> Cooked Runtime Streams + 64-Bit Traitor Watermarking**:
+   - Any asset rendered locally exists in that authorized device's RAM/VRAM while active. To prevent clean re-authoring and trace leaks:
+     * **3D Spatial (`@vibeslayer/spatial-3d`)**: Strips all scene/node/mesh/material names, bakes `int16` SNORM GPU buffers (`VS3D`), and embeds an imperceptible **1,024-chip spread-spectrum $\pm 1\text{ LSB}$ watermark** (`100%` `1024/1024` bit attribution back to the leaking `leaseId`/account).
+     * **Data & AI (`@vibeslayer/data-ai`)**: `64 KiB` `O(1)` random-access `ChaCha20-Poly1305` tensor chunks (`VSRA`) + `±2e-6` FP32 spread-spectrum tensor watermark (`100%` leaker attribution, `0` inference loop ops).
+
+---
+
+## 2. Measured Head-to-Head Benchmark: `vibeslayer-suite v0.7.0-beta.2` vs. `BLA v3.2.1` (`--intensity bankrupt`)
+
+Measured on identical raw unprotected inputs (`BENCHMARK_V070_RESULTS.json`):
+
+| Product Line | Raw Size | `BLA v3.2.1` (`bankrupt`) Output & Security | `vibeslayer-suite v0.7.0-beta.2` Output & Security |
+| :--- | ---: | :--- | :--- |
+| **1. Web (`@vibeslayer/web`)** | `116 B` | `130,098 B` (**`1,121.5×` bloat**); self-contained JS chaff | **`233 B` (`2.01×`)**; `AES-256-GCM` + `ECDH P-256` (`extractable: false`), `2.46 ms` cold unseal |
+| **2. WASM (`@vibeslayer/wasm`)** | `100 B` | `6,880,116 B` (**`68,801×` bloat**); `\0asm` exposed (`true`); `9.16 ms` instantiate | **`220 B` (`2.20×`, `31,273×` smaller)**; `\0asm` exposed: **`false`**; `0.97 ms` unseal+instantiate |
+| **3. 3D Spatial (`@vibeslayer/spatial-3d`)** | `581,260 B` | ❌ **Unsupported (`rc=1`)** | **`749,679 B` (`1.29×`)**; `0` raw chunks exposed (`7.9998` bits/B entropy); `4.71 ms` unseal; `0` frame ops; **`100%` watermark trace** |
+| **4. Native Binary (`@vibeslayer/native`)** | `15,992 B` | `1,180,819 B` (`73.84×` bloat); **`.rodata` secret left in plaintext (`true`)** | **`25,656 B` (`1.60×`)**; `.rodata` exposed: **`false`** (`7.94` bits/B `.vsblob`); live `.text` SHA-256 + `PR_SET_DUMPABLE=0`; `2.01 ms` |
+| **5. Desktop (`@vibeslayer/desktop`)** | `67 B` rules | In-process JS chaff; exposed to Renderer DevTools | **`649 B` `Ed25519` `.vsasar`** + native ELF64 & Win64 PE64 enclave sidecars (`PR_SET_DUMPABLE=0`, `0.095 ms` IPC) |
+| **6. Mobile (`@vibeslayer/mobile`)** | `44 B` shader | `1,188,883 B` `.so` chaff; **no APK cert cryptographic binding (`false`)** | **`24,056 B` `libvsmobile.so`** + `143 B` `.vsmb`; APK cert HKDF+ChaCha20-Poly1305 bound (`1.30 ms`) |
+| **7. Data & AI (`@vibeslayer/data-ai`)** | `262,231 B` | `272,184 B`; **raw FP32 weights left 100% plaintext (`true`)** | **`262,303 B` (`1.0003×`, `+72 B`)**; `O(1)` 64 KiB chunk unseal (`1.45 ms`); raw weights exposed: **`false`** (`7.9992` bits/B) |
+
+---
+
+## 3. Independent Blind AI Subagent Battle-Test
+
+- **Iterative Red-Team Catch & Fix**: During `v0.7.0-beta.1` red-teaming, the first blind subagent blocked `6/7` arenas (`NOT RECOVERED`) and caught a client/packer bundle-splitting issue in `arena_2_wasm` (`compileCompactComputeWasm()` shipped inside the client file). Pure client runtimes were immediately separated into `src/client/*.js` with CSPRNG-padded `.vsblob` in `v0.7.0-beta.2`.
+- **Verified Blind Verdict**: Executed inside an unprivileged read-only `bwrap` sandbox against isolated arenas -> **`0 / 7` arenas recovered (`NOT RECOVERED` on all 7 products)**, `0` `\0asm` hits, `0` `glTF` hits, `0` embedded keys.
+
+---
+
+## 4. Build, Test & Benchmark Commands
+
+```bash
+npm run build:native --prefix vibeslayer-suite
+npm run coverage --prefix vibeslayer-suite
+npm run bench --prefix vibeslayer-suite
+```

@@ -1,0 +1,206 @@
+# Native Binaries, Repository Auto-Protection & Polyglot SDKs
+
+[← Back to README](../README.md) · [CLI & Configuration](./cli-and-configuration.md)
+
+Beyond live websites and 3D streams, Vibe-Slayer protects entire source repositories, `.env` secrets, compiled Linux x86-64 `ELF64` binaries, WebAssembly modules, and AI weights — and ships **wire-compatible `VSPK2` / `VSPK3` native SDKs** across **Rust, C/C++, Go, Python**, plus companion **Node.js** packages (`vibeslayer-suite`, `vibeslayer-policy-kit`).
+
+---
+
+## 1. Repository & File Auto-Protection
+
+Point `./vibe-slayer` at any directory or individual file:
+
+```bash
+# Audit first (dry run: shows file classifications & redacted credential warnings)
+./vibe-slayer scan ./my-repo
+
+# Protect an entire repository -> outputs ./my-repo-protected + 0600 keys vault
+./vibe-slayer ./my-repo
+
+# Encrypt even public scaffold files (README.md, CSS, images)
+./vibe-slayer ./my-repo --seal-all
+
+# Protect a single source file or compiled Linux ELF64 executable
+./vibe-slayer ./app.py                 # -> ./app.py.vspk3
+./vibe-slayer ./my_program             # -> ./my_program.protected (lease-bound)
+./vibe-slayer ./my_program --standalone # -> ./my_program.protected (runs directly)
+
+# Verify integrity & restore losslessly
+./vibe-slayer test ./my-repo-protected
+./vibe-slayer unseal ./my-repo-protected -o ./my-repo-restored
+```
+
+### Automatic Engine Routing
+
+| Input Type | Output / Engine | Cryptographic & Runtime Properties |
+| :--- | :--- | :--- |
+| **Source Code, Configs, `.wasm`, AI Weights** (`.py`, `.rs`, `.go`, `.c`, `.cpp`, `.js`, `.ts`, `.java`, `.cs`, `.wasm`, `.safetensors`, `.onnx`, `.gguf`, `.pt`, `.ckpt`) | `VSPK3` (`.vspk3`) | Headerless key-committing AEAD (`HKDF-SHA256` + `HMAC-SHA256` `CMT4` + `ChaCha20-Poly1305`), `1024 B` pad-then-encrypt, `0` plaintext magic bytes, `>= 7.0` bits/B entropy |
+| **Compiled Linux `ELF64` Executables** (excluding `.so`/`.node`/`.o`/`.a`) | `wrap-elf` (`.protected`) | Freestanding `-nostdlib` static-PIE wrapper (`PT_INTERP` absent, Intel CET `IBT` + `SHSTK`), scrubs `LD_PRELOAD`/`LD_AUDIT`/`VS_LEASE_FD`, blocks `ptrace` (`TracerPid` + `PR_SET_DUMPABLE=0`), hashes non-writable `PT_LOAD` segment, executes from sealed `memfd_create` via `SYS_execveat(AT_EMPTY_PATH)` |
+| **Small Secrets (`<= 4096 B`)** (`.vault`, `.secret`, or `--vault`) | `freestanding-vault` | Static-PIE ELF vault allocating decrypted payload inside kernel `memfd_secret(0)` (with `MADV_DONTDUMP` + `mlock` fallback) |
+| **3D Models (`.glb`)** | Dual `VSPK3` + cooked `VS3D` | Lossless `.glb.vspk3` for exact SHA-256 restoration + cooked `.glb.vs3d` supporting `WM64` 64-bit spread-spectrum buyer watermarking (`±2` LSB noise tolerant) |
+| **Secrets & Private Keys** (`.env`, `.pem`, `.key`, `.p12`, `.pfx`, or detected credentials) | `VSPK3` (`.vspk3`) | Automatically forced into encryption even if filename looks public; vault keys stored in `<project>/.vibeslayer/keys.json` (`0600`) and auto-added to `.gitignore` |
+
+### Executing Protected Linux Binaries
+
+```bash
+# Lease-bound binary (master/lease key stays out of the executable, passed via private FD 3 pipe)
+./vibe-slayer run ./my_program.protected -- --port 9000
+
+# Standalone binary (compiled with --standalone; no external keys.json needed at runtime)
+./my_program.protected --port 9000
+```
+
+---
+
+## 2. Wire-Compatible Container Formats (`VSPK2` & `VSPK3`)
+
+All four native SDKs (`Rust`, `C/C++`, `Go`, `Python`) interoperate over the exact same binary wire formats:
+
+- **`VSPK2`**: Self-describing domain/asset/context header + `HKDF-SHA256` per-asset key derivation + `RFC 8439 ChaCha20-Poly1305` AEAD.
+- **`VSPK3`**: Headerless `92 B` prefix (`salt(32) || nonce(12) || CMT4_HMAC(32) || Poly1305_tag(16)`) + `1024 B`-padded ciphertext. Zero plaintext magic bytes or metadata on disk; verifies key-committing `CMT4` in constant time before decrypting.
+
+Pack an asset once from the CLI and unseal it in any language:
+
+```bash
+KEY_HEX=$(openssl rand -hex 32)
+./vibe-slayer pack-v3 \
+  --key "$KEY_HEX" \
+  --domain "billing" \
+  --asset-id "pricing-rules-v1" \
+  --context "prod-eu" \
+  --in ./rules.json \
+  --out ./rules.vspk3
+```
+
+---
+
+## 3. Native SDK Usage Examples
+
+### C / C++ (`vibeslayer-native-core/sdk_c/vibeslayer.h`)
+
+Build the shared library with `make -C vibeslayer-native-core all` and link against `vibeslayer-native-core/bin/libvibeslayer.so` (Linux) or `bin/vibeslayer.dll` (Windows):
+
+```bash
+gcc -O2 my_app.c -Ivibeslayer-native-core/sdk_c -Lvibeslayer-native-core/bin -lvibeslayer -Wl,-rpath,'$ORIGIN/vibeslayer-native-core/bin' -o my_app
+```
+
+```c
+#include <stdio.h>
+#include <stdint.h>
+#include "vibeslayer.h"
+
+int load_rules(const uint8_t master_key[32], const uint8_t *vspk3, size_t vspk3_len) {
+    /* Sets PR_SET_DUMPABLE=0 on Linux to harden against core dumps / ptrace */
+    vs_harden_process();
+
+    uint8_t plain[4096];
+    int n = vs_unseal_vspk3(
+        master_key,
+        "billing",          /* expected_domain */
+        "pricing-rules-v1", /* asset_id */
+        "prod-eu",          /* expected_context */
+        vspk3,
+        vspk3_len,
+        plain,
+        sizeof(plain)
+    );
+    if (n < 0) {
+        /* -1: args/bounds, -3: Poly1305/length failure, -4: CMT-4 commitment failure */
+        return n;
+    }
+    /* Use plain[0..n], then zeroize before returning */
+    return n;
+}
+```
+
+Available C exports:
+- `int vs_harden_process(void)`
+- `int vs_unseal_vspk2(master_key32, expected_domain, expected_context, vspk_bytes, vspk_len, plain_out, plain_cap)`
+- `int vs_unseal_vspk2_for_asset(master_key32, expected_domain, expected_asset_id, expected_context, vspk_bytes, vspk_len, plain_out, plain_cap)`
+- `int vs_unseal_vspk3(master_key32, expected_domain, asset_id, expected_context, vspk_bytes, vspk_len, plain_out, plain_cap)`
+
+### Python (`vibeslayer-native-core/sdk_python/vibeslayer.py`)
+
+Backed directly by compiled `../bin/libvibeslayer.so` via `ctypes` (zero pip dependencies; build first with `make -C vibeslayer-native-core all` and run with `PYTHONPATH=vibeslayer-native-core/sdk_python`):
+
+```python
+from pathlib import Path
+from vibeslayer import ActionRule, ParamSpec, Policy
+
+policy = Policy(
+    master_key_hex=KEY_HEX,
+    enabled=True,  # Fail-closed default is False
+    actions={
+        "billing.load": ActionRule(
+            domain="billing",
+            context="prod-eu",
+            params={
+                "seats": ParamSpec(kind="int", min_val=1, max_val=1000),
+                "tier": ParamSpec(kind="enum", values=["pro", "enterprise"]),
+            },
+        )
+    },
+)
+
+try:
+    vspk3_bytes = Path("rules.vspk3").read_bytes()
+    plaintext = policy.unseal_action_vspk3(
+        action="billing.load",
+        params={"seats": 25, "tier": "enterprise"},
+        asset_id="pricing-rules-v1",
+        vspk_bytes=vspk3_bytes,
+    )
+finally:
+    policy.zeroize()
+```
+
+### Go (`vibeslayer-native-core/sdk_go/vibeslayer.go`)
+
+Pure Go standard library implementation (zero `cgo`, zero external modules):
+
+```go
+policy := &vibeslayer.Policy{
+    Enabled:   true,
+    MasterKey: masterKey32,
+    Actions: map[string]vibeslayer.ActionRule{
+        "billing.load": {
+            Domain:  "billing",
+            Context: "prod-eu",
+            AssetID: "pricing-rules-v1",
+            Params: map[string]vibeslayer.ParamRule{
+                "seats": {Kind: vibeslayer.ParamInt, Min: 1, Max: 1000},
+                "tier":  {Kind: vibeslayer.ParamEnum, Values: []string{"pro", "enterprise"}},
+            },
+        },
+    },
+}
+
+plain, err := policy.UnsealActionVspk3(
+    "billing.load",
+    map[string]any{"seats": int64(25), "tier": "enterprise"},
+    "pricing-rules-v1",
+    vspk3Bytes,
+)
+```
+
+### Rust (`vibeslayer-native-core/rust_core`)
+
+Zero external crates — import `vibeslayer_core` directly as a path crate:
+
+```rust
+use vibeslayer_core::{pack_vspk3, unseal_vspk3, secure_zero};
+
+let sealed = pack_vspk3(&master_key, "billing", "pricing-rules-v1", "prod-eu", plaintext)?;
+let mut opened = unseal_vspk3(&master_key, "billing", "pricing-rules-v1", "prod-eu", &sealed)?;
+// use `opened`, then scrub memory:
+secure_zero(&mut opened);
+```
+
+---
+
+## 4. Companion Node.js Packages
+
+| Package | Path | Purpose |
+| :--- | :--- | :--- |
+| **`vibeslayer-suite`** | [`vibeslayer-suite/`](../vibeslayer-suite/README.md) | Programmatic lease authority + 7 product engines (`webProduct`, `wasmProduct`, `spatial3dProduct`, `nativeProduct`, `desktopProduct`, `mobileProduct`, `dataAiProduct`) + `antiStealth` Web Component CloakBrowser denial |
+| **`vibeslayer-policy-kit`** | [`vibeslayer-policy-kit/`](../vibeslayer-policy-kit/README.md) | Source-configured HTTP policy gateway (`public-preview`, `server-only`, `client-sealed`) with typed param schemas, replay/rate limits, field redaction, and `antiStealth` CloakBrowser denial |

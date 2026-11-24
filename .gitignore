@@ -1,0 +1,17 @@
+# Compiled binaries & build artifacts (rebuilt via `make -C vibeslayer-native-core all`)
+/vibe-slayer
+vibeslayer-native-core/bin/
+vibeslayer-native-core/rust_core/target/
+vibeslayer-suite/dist_bin/
+node_modules/
+__pycache__/
+*.pyc
+.DS_Store
+
+# Never commit key vaults, local registries, or secrets
+.vibeslayer/
+*.vibeslayer.keys.json
+.vibeslayer-registry.json
+*.vsshield.key
+.env
+.env.*

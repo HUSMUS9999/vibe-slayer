@@ -1,0 +1,19 @@
+{
+  "name": "vibeslayer-suite",
+  "version": "0.8.0-beta.2",
+  "description": "End-to-end multi-platform client-download + runtime-bound protection suite (Web, WASM, 3D Spatial, Native ELF64/PE64, Desktop Enclave, Mobile JNI, Data/AI Weights)",
+  "bin": {
+    "vs": "./cli/vs.js",
+    "vibeslayer-auto": "./cli/vs.js"
+  },
+  "main": "./src/index.js",
+  "scripts": {
+    "build:native": "node scripts/build-native.js",
+    "test": "node --test test/suite.test.js test/auto.test.js",
+    "coverage": "node --test --experimental-test-coverage test/suite.test.js",
+    "bench": "node bench/benchmark-all-vs-bla.js"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

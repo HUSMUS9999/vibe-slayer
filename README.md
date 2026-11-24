@@ -1,101 +1,106 @@
 <p align="center">
-  <img src="assets/vibeslayer-logo.png" alt="Vibe-Slayer — Zero-Dependency Asset & Runtime Protection" width="100%" />
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/vibeslayer-hero-dark.svg" />
+    <source media="(prefers-color-scheme: light)" srcset="assets/vibeslayer-hero-light.svg" />
+    <img src="assets/vibeslayer-hero-light.svg" alt="Vibe-Slayer — Zero-Dependency Asset &amp; Runtime Protection" width="400" />
+  </picture>
+</p>
+
+<h1 align="center">Vibe-Slayer</h1>
+
+<p align="center">
+  Zero-Dependency Rust + C99 Asset &amp; Runtime Protection Platform
 </p>
 
 <p align="center">
-  <a href="#architecture--packages"><img src="assets/badges/core.svg" alt="Core: Rust + C99 (0 Crates)" /></a>
-  <a href="docs/getting-started-beginners.md"><img src="assets/badges/nl-cli.svg" alt="CLI: Plain-English (ask)" /></a>
-  <a href="docs/web-and-web-components.md"><img src="assets/badges/runtime.svg" alt="Runtime: Zero Node.js" /></a>
-  <a href="docs/web-and-web-components.md#5-live-verification-cloakbrowser-146-vs-chrome-158"><img src="assets/badges/anti-stealth.svg" alt="Anti-Stealth: CloakBrowser Denied" /></a>
-  <a href="docs/deployment-and-security-proxies.md"><img src="assets/badges/proxy.svg" alt="HTTP/1.1: RFC 9112 Proxy Ready" /></a>
+  <a href="https://github.com/HUSMUS9999/vibe-slayer/releases/tag/v1.0.0-beta.3"><img src="assets/badges/version.svg" alt="version: 1.0.0-beta.3" /></a>
+  <a href="#architecture--packages"><img src="assets/badges/core.svg" alt="core: Rust + C99" /></a>
+  <a href="#architecture--packages"><img src="assets/badges/crates.svg" alt="crates: 0" /></a>
+  <a href="#quickstart"><img src="assets/badges/runtime.svg" alt="runtime: standalone" /></a>
+  <a href="LICENSE"><img src="assets/badges/license.svg" alt="license: MIT" /></a>
 </p>
 
-**Zero-dependency compiled Rust + C99 protection platform for repositories, native Linux binaries, live websites & Web Components, AI weights, and interactive 3D models — built for the era of AI reversing agents ("vibe reversing") and anti-detect browsers.**
+**Vibe-Slayer** compiles to a single standalone Rust + C99 binary with zero external crates or runtime dependencies — replacing fragile static obfuscation with real cryptographic and physical boundaries for live websites & Web Components, interactive 3D models, native Linux ELF64 binaries, AI model weights, and source repositories.
 
-`vibe-slayer` compiles to a **single standalone binary** with **zero external Rust crates** and **zero Node.js runtime dependency**, backed by wire-compatible native SDKs for **Rust, C/C++, Go, and Python** plus companion zero-dependency Node.js packages (`vibeslayer-suite`, `vibeslayer-policy-kit`).
+## Features
 
----
-
-## Why Vibe-Slayer Exists (The Vision)
-
-Traditional obfuscators were built to slow down human reverse engineers reading static code. Against modern **AI coding/reversing agents**, **CDP scrapers**, **WebGL rippers**, and **C++-patched stealth browsers (like CloakBrowser)**, static obfuscation collapses:
-
-- **Static chaff bloats your users, not attackers**: Classic obfuscators inflate a `100 B` WebAssembly module to **`6.88 MB` (`68,801×`)** or a `16 KB` binary to **`1.18 MB`** while leaving `.rodata` secrets, `\0asm` headers, or raw AI model weights readable at rest — and an LLM agent simply runs a 15-line runtime hook to dump plaintext in seconds.
-- **3D & Web Components ship naked**: Standard `.glb` viewers stream complete meshes and textures straight to browser RAM/WebGL; static websites serve raw source to `curl` and Playwright.
-- **Anti-detect browsers bypass naive bot checks**: Tools like CloakBrowser strip `navigator.webdriver` and CDP leaks directly inside C++.
-
-**Vibe-Slayer replaces obscurity with real cryptographic and physical boundaries**:
-1. **Standard 256-bit AEAD everywhere** (`AES-256-GCM` `.vsweb` + headerless key-committing `VSPK3` `CMT4` + `ChaCha20-Poly1305`) — zero plaintext magic headers, zero keys on disk.
-2. **Zero-geometry 3D pixel streaming (`--mode stream`)** — `0` vertices, `0` UVs, `0` textures, `0` shaders, and `0` WebGL contexts ever reach the client; every frame arrives `AES-256-GCM`-encrypted with a visually invisible 64-bit forensic buyer watermark.
-3. **Physics-invariant anti-CloakBrowser defense (`--anti-stealth`)** — 6 hardware/physics invariants enforced at the loader, server SHA-256 attestation, and inline inside every hardened `.js`/`.mjs` Web Component.
-4. **Plain-English beginner ergonomics (`ask` / `explain`)** — anyone can secure a site, 3D asset, or repo without memorizing security flags.
-
-Read the full **[Vision, Architecture & Benchmarks](docs/vision-and-benchmarks.md)**.
+- **Plain-English CLI (`ask` & `explain`)** — Protect sites, 3D assets, or repos in everyday English with safe `dry-run` previews before touching disk
+- **Live Websites & Web Components (`.vsweb`)** — AES-256-GCM encrypted delivery with non-extractable ECDH P-256 WebCrypto leases, Shadow DOM / Custom Elements support, and offline-dead runtime-keyed JS
+- **Physics-Invariant Anti-Stealth (`--anti-stealth`)** — Detects and blocks C++-patched anti-detect and stealth browsers across loader, server SHA-256 attestation, and inline `.mjs` guards, and traps CDP `Runtime.enable` agents
+- **Zero-Geometry 3D Streaming (`--mode stream`)** — Streams AES-256-GCM frames carrying an invisible 64-bit forensic buyer watermark (0 vertices, UVs, textures, shaders, or WebGL exposed), plus optional 60 FPS WebGL2 `--mode gpu`
+- **Native ELF64, WASM & AI Weight Vaults** — Static-PIE Linux binaries (Intel CET + `memfd_secret`), headerless `VSPK3` (CMT4 + ChaCha20-Poly1305), and O(1) 64 KiB random-access AEAD for `.safetensors`
+- **RFC 9112 Server & Polyglot SDKs** — Built-in Rust HTTP/1.1 runtime (58,619 ECDH leases/s, 196,205 `.vsweb` req/s) compatible with Nginx/Caddy/Cloudflare, backed by wire-compatible Rust, C/C++, Go, Python, and zero-dependency JS SDKs
 
 ---
 
-## Documentation Index
+## Quickstart
 
-| Audience | Guide | What You'll Find |
-| :--- | :--- | :--- |
-| **Beginners** | **[Plain-English Beginner's Guide](docs/getting-started-beginners.md)** | Use `./vibe-slayer ask "..."` and `explain "..."` with zero jargon + copy-paste everyday recipes |
-| **Evaluators & CTOs** | **[Vision & Head-to-Head Benchmarks](docs/vision-and-benchmarks.md)** | Why obfuscation failed vs. AI agents + real measured benchmarks against `BLA v3.2.1` |
-| **Frontend & Web Devs** | **[Live Websites & Web Components](docs/web-and-web-components.md)** | Zero-Node `.vsweb` ECDH P-256 runtime, Shadow DOM / Custom Elements, `--harden-js`, `--anti-cdp`, and `--anti-stealth` CloakBrowser denial |
-| **3D & Spatial Teams** | **[3D Shield & Encrypted Stream](docs/3d-shield-and-stream.md)** | `--mode stream` (zero-geometry AES-GCM frames) vs. `--mode gpu` (60 FPS WebGL2 cipher) & 64-bit forensic tracing |
-| **Backend & Systems** | **[Native Binaries & Polyglot SDKs](docs/native-binaries-and-sdks.md)** | Repo auto-classification, static-PIE ELF64 (`CET` + `memfd_secret`), and Rust/C/Go/Python/JS SDK examples |
-| **DevOps & SecOps** | **[Deployment & Security Proxies](docs/deployment-and-security-proxies.md)** | RFC 9112 proxy compliance, Nginx/Caddy configs, `--trust-proxy`, Caido/Burp testing & error-code troubleshooting |
-| **Power Users** | **[CLI Reference & Configuration](docs/cli-and-configuration.md)** | Every subcommand, preset matrix, `vibeslayer.config.json` schema, and environment variables |
-| **Security Auditors** | **[Threat Model & Empirical Proofs](docs/threat-model-and-benchmarks.md)** | Honest Tier 1–4 adversary matrix, all 6 CloakBrowser hardware invariants, and irreducible browser boundaries |
+### 1. Build Standalone Binary (Zero Crates)
 
----
+```bash
+git clone https://github.com/HUSMUS9999/vibe-slayer.git
+cd vibe-slayer
+cargo build --release --manifest-path vibeslayer-native-core/rust_core/Cargo.toml
+cp vibeslayer-native-core/rust_core/target/release/vibe-slayer ./vibe-slayer
+```
 
-## Easiest Way to Start: Plain English (`ask` & `explain`)
+### 2. Start in Plain English (`explain` & `ask`)
 
-No flags to memorize — tell Vibe-Slayer what you want in everyday English. Use `explain` to preview safely (`dry-run`), or `ask` to execute immediately:
+No flags to memorize — preview safely (`dry-run`) with `explain`, or run immediately with `ask`:
 
 ```bash
 # Preview the exact command & plain-English explanation first (zero changes on disk)
-./vibe-slayer explain "protect my website ./dist and block cloakbrowser on port 8080"
+./vibe-slayer explain "protect my website ./dist and block stealth browsers on port 8080"
 
-# Protect a website / Web Components app and deny CloakBrowser
-./vibe-slayer ask "protect my website ./dist and block cloakbrowser on port 8080"
+# Protect a website / Web Components app and block anti-detect / stealth browsers
+./vibe-slayer ask "protect my website ./dist and block stealth browsers on port 8080"
 
-# Protect & prepare a 3D model for zero-geometry encrypted pixel streaming
+# Stream a 3D model with zero client-side geometry
 ./vibe-slayer ask "stream my 3d model ./hero.glb without sending geometry"
 
-# Audit a repository for leaked API keys / .env secrets
+# Scan a repository for leaked API keys / .env secrets
 ./vibe-slayer ask "scan ./my-repo for leaked api keys"
 
 # Run the built-in end-to-end sandbox demo
 ./vibe-slayer ask "show me a demo"
 ```
 
----
-
-## 60-Second Explicit CLI Quickstart
+### 3. Explicit CLI Workflows
 
 ```bash
-# 1. Live Website & Web Components (Paranoid: offline-dead rtKey JS + anti-CDP + anti-CloakBrowser strict)
+# Live Website & Web Components (Paranoid: offline-dead rtKey JS + anti-CDP + strict anti-stealth)
 ./vibe-slayer website ./my-web-app -o ./my-web-app-protected --preset paranoid --origin http://127.0.0.1:8080
 ./vibe-slayer serve ./my-web-app-protected --preset paranoid --addr 127.0.0.1:8080 --origin http://127.0.0.1:8080
 
-# 2. 3D Model Zero-Geometry Encrypted Pixel Stream (0 vertices / 0 WebGL sent to client)
+# 3D Model Zero-Geometry Encrypted Pixel Stream (0 vertices / 0 WebGL sent to client)
 ./vibe-slayer shield-3d --in ./model.glb --out ./model-shielded --key-file ./model.vsshield.key --preset paranoid
 ./vibe-slayer serve-3d ./model-shielded --preset paranoid --key-file ./model.vsshield.key --addr 127.0.0.1:8790 --origin http://127.0.0.1:8790
 
-# 3. Repository, Secrets & Compiled Linux ELF64 Protection
+# Repository, Secrets & Compiled Linux ELF64 Protection
 ./vibe-slayer scan ./my-repo
 ./vibe-slayer ./my-repo
 ./vibe-slayer test ./my-repo-protected
 ./vibe-slayer unseal ./my-repo-protected -o ./restored
 
-# 4. Editable JSON Configuration Template
+# Editable JSON Configuration Template
 ./vibe-slayer init-config --preset paranoid -o vibeslayer.config.json
 ```
 
 ---
 
-## Architecture Overview
+## Why Vibe-Slayer?
+
+Traditional obfuscators were built to slow down human reverse engineers reading static code. Against **AI reversing agents**, **CDP scrapers**, **WebGL rippers**, and **C++-patched anti-detect browsers**, static obfuscation fails:
+
+- **Static chaff bloats users, not attackers** — Classic obfuscators inflate a `100 B` WebAssembly module to `6.88 MB` (`68,801x`) or a `16 KB` binary to `1.18 MB` while leaving `.rodata` secrets, `\0asm` headers, or raw AI weights readable at rest, and an LLM agent dumps plaintext via a 15-line runtime hook in seconds.
+- **3D assets & Web Components ship naked** — Standard `.glb` viewers stream complete meshes and textures straight into browser RAM/WebGL; static hosts serve raw source to `curl` and Playwright.
+- **Anti-detect browsers bypass naive bot checks** — Hardened Chromium forks strip `navigator.webdriver` and CDP leaks directly inside C++.
+
+Vibe-Slayer replaces obscurity with standard **256-bit AEAD** (`AES-256-GCM`, headerless `VSPK3` `CMT4` + `ChaCha20-Poly1305`), **zero-geometry 3D pixel streaming**, and **6 hardware/physics browser integrity invariants**. Read the full **[Vision, Architecture & Benchmarks](docs/vision-and-benchmarks.md)**.
+
+---
+
+## Architecture & Packages
 
 ```mermaid
 flowchart TB
@@ -125,46 +130,6 @@ flowchart TB
     CLI --> REPO
 ```
 
----
-
-## Real Measured Benchmarks vs. Other Tools
-
-All comparisons below were measured directly on identical unprotected inputs against **`BLA v3.2.1 --intensity bankrupt`** and raw baselines (see **[Vision & Benchmarks](docs/vision-and-benchmarks.md)** for full methodology):
-
-| Target | Raw Size | `BLA v3.2.1` (`bankrupt`) | `Vibe-Slayer` (Measured) |
-| :--- | ---: | :--- | :--- |
-| **Web JS Bundle** | `116 B` | `130,098 B` (`1,121.5×`); callable offline via 1-line import | **`233 B` (`2.01×`, `558×` smaller)**; `AES-256-GCM` + non-extractable `ECDH P-256`; `2.11 ms` unseal; `0` offline bits |
-| **WASM Module** | `100 B` | `6,880,116 B` (`68,801×`); `\0asm` exposed; `9.34 ms` boot | **`220 B` (`2.20×`, `31,273×` smaller)**; `\0asm` hidden; **`0.91 ms`** unseal+instantiate (`10.2×` faster) |
-| **3D `.glb` Model** | `581 KB` | **Unsupported (`exit 1`)** | **`750 KB` (`1.29×`)** cooked `VS3D` + `64/64` `WM64` (`0.984 ms` decode under `±2` LSB noise); or **`--mode stream`** (`0` geometry sent, `23.7 ms` RTT at `1280×820`) |
-| **Native Linux `ELF64`** | `16.0 KB` | `1,180.9 KB` (`73.8×`); `.rodata` plaintext; `1,952` `.text` tokens | **`169.0 KB` (`6.99×` smaller)**; `0` `PT_INTERP`/`DT_NEEDED`; Intel CET + `memfd_secret`; `0.891 ms` cold start; **`902,988` live `.text` tokens (`462.6×`)** |
-| **AI Weights (`.safetensors`)** | `262 KB` | `272 KB` (`1.04×`); raw FP32 weights **100% plaintext** | **`262.3 KB` (`1.0003×`)**; `O(1)` 64 KiB random-access AEAD (`1.56 ms`); `0` raw floats exposed |
-| **Runtime Server Throughput** | — | N/A | **`58,619` ECDH leases/s** · **`196,205` `.vsweb` req/s** · **`3,294 MiB/s`** C SDK `VSPK3` unseal |
-| **Live CloakBrowser 146 vs. Chrome 158** | — | N/A | **CloakBrowser 146: `100%` Denied (`11/11`, `0` leases, `0` Web Components)** · **Chrome 158: `0/11` (`0` false positives)** |
-
----
-
-## Honest Security Assessment (No Hype)
-
-| Threat Tier | Website & Web Components (`paranoid`) | 3D Stream (`paranoid`) |
-| :--- | :--- | :--- |
-| **Tier 1: `curl` / `wget` / Static Scrapers** | **100% Blocked** (empty shell, `.vsweb` AES-256-GCM, `403` manifest) | **100% Blocked** (`0` 3D files exposed) |
-| **Tier 2: Playwright / Puppeteer / Selenium** | **100% Blocked before lease** (`AUTOMATION_DENIED`) | **100% Blocked before init** (`AUTOMATION_DENIED`) |
-| **Tier 3: AI-Agent CDP Reversers** | **Blocked by `Runtime.enable` trap**; dumped JS is offline-dead (`VS_RUNTIME_KEY_REQUIRED`) + `96 KB` decoy VM | **~100% Geometry Blocked** (`0` verts/UVs/textures/shaders/WebGL; AES-GCM wire + `0.999+` blind 64-bit WM) |
-| **Tier 4a: Anti-Detect Browsers (CloakBrowser 146)** | **100% Denied (`STEALTH_BROWSER_DENIED`)** at loader, server attestation, AND inline inside extracted hardened `.mjs` Web Components | **100% Denied (`STEALTH_BROWSER_DENIED`)** (`0` handshakes in both `strict` and `balanced`) |
-| **Tier 4b: Custom Zero-Noise Patched Chromium + Human** | **Irreducible client-JS boundary**: keep truly secret keys/formulas server-only via [`vibeslayer-policy-kit`](vibeslayer-policy-kit/README.md) | **No mesh/UV/PBR recovery**: only rate-limited, single-in-flight, focal/tilt-drifted 2D frames, every one carrying a blind 64-bit buyer watermark |
-
----
-
-## Ecosystem & Companion Standalone Repositories
-
-- **[Vibe-Slayer](https://github.com/HUSMUS9999/vibe-slayer)** *(this repository)* — Full-stack zero-dependency asset, binary, website/Web Component, AI weight, and 3D stream protection platform.
-- **[ProxySnare](https://github.com/HUSMUS9999/proxysnare)** — Dedicated standalone middleware & CLI shield that detects and blocks intercepting HTTP proxies and repeaters (**Caido Repeater**, **Burp Suite Repeater**, **mitmproxy**).
-- **[CloakGate](https://github.com/HUSMUS9999/cloakgate)** — Dedicated drop-in browser SDK, `<cloak-gate>` Web Component, and reverse-proxy middleware for detecting and blocking **CloakBrowser** and anti-detect browsers in 60 seconds.
-
----
-
-## Architecture & Packages
-
 | Component | Path | Language & Dependencies | Role |
 | :--- | :--- | :--- | :--- |
 | **Standalone CLI & Servers** | [`vibeslayer-native-core/`](vibeslayer-native-core/README.md) | Rust + C99 (**0 crates**) | `./vibe-slayer` (`ELF64` & `PE32+`), `libvibeslayer.so`/`.dll`, Rust/C/Go/Python SDKs |
@@ -173,10 +138,63 @@ All comparisons below were measured directly on identical unprotected inputs aga
 
 ---
 
-## Build Prerequisites & Running All Test Suites
+## Measured Benchmarks
+
+All measurements were taken on identical unprotected inputs against **`BLA v3.2.1 --intensity bankrupt`** and raw baselines (methodology in **[Vision & Benchmarks](docs/vision-and-benchmarks.md)**):
+
+| Target | Raw Size | `BLA v3.2.1` (`bankrupt`) | `Vibe-Slayer` (Measured) |
+| :--- | ---: | :--- | :--- |
+| **Web JS Bundle** | `116 B` | `130,098 B` (`1,121.5x`); callable offline via 1-line import | **`233 B` (`2.01x`, `558x` smaller)**; AES-256-GCM + non-extractable ECDH P-256; `2.11 ms` unseal; `0` offline bits |
+| **WASM Module** | `100 B` | `6,880,116 B` (`68,801x`); `\0asm` exposed; `9.34 ms` boot | **`220 B` (`2.20x`, `31,273x` smaller)**; `\0asm` hidden; **`0.91 ms`** unseal+instantiate (`10.2x` faster) |
+| **3D `.glb` Model** | `581 KB` | **Unsupported (`exit 1`)** | **`750 KB` (`1.29x`)** cooked `VS3D` + `64/64` `WM64` (`0.984 ms` decode under `+/-2` LSB noise); or **`--mode stream`** (`0` geometry sent, `23.7 ms` RTT at `1280x820`) |
+| **Native Linux `ELF64`** | `16.0 KB` | `1,180.9 KB` (`73.8x`); `.rodata` plaintext; `1,952` `.text` tokens | **`169.0 KB` (`6.99x` smaller)**; `0` `PT_INTERP`/`DT_NEEDED`; Intel CET + `memfd_secret`; `0.891 ms` cold start; **`902,988` live `.text` tokens (`462.6x`)** |
+| **AI Weights (`.safetensors`)** | `262 KB` | `272 KB` (`1.04x`); raw FP32 weights **100% plaintext** | **`262.3 KB` (`1.0003x`)**; `O(1)` 64 KiB random-access AEAD (`1.56 ms`); `0` raw floats exposed |
+| **Runtime Server Throughput** | — | N/A | **`58,619` ECDH leases/s** · **`196,205` `.vsweb` req/s** · **`3,294 MiB/s`** C SDK `VSPK3` unseal |
+| **CloakBrowser 146 vs. Chrome 158** | — | N/A | **CloakBrowser 146: `100%` Denied (`11/11`, `0` leases, `0` Web Components)** · **Chrome 158: `0/11` (`0` false positives)** |
+
+---
+
+## Threat Model & Honest Boundaries
+
+| Threat Tier | Website & Web Components (`paranoid`) | 3D Stream (`paranoid`) |
+| :--- | :--- | :--- |
+| **Tier 1: `curl` / `wget` / Static Scrapers** | **100% Blocked** (empty shell, `.vsweb` AES-256-GCM, `403` manifest) | **100% Blocked** (`0` 3D files exposed) |
+| **Tier 2: Playwright / Puppeteer / Selenium** | **100% Blocked before lease** (`AUTOMATION_DENIED`) | **100% Blocked before init** (`AUTOMATION_DENIED`) |
+| **Tier 3: AI-Agent CDP Reversers** | **Blocked by `Runtime.enable` trap**; dumped JS is offline-dead (`VS_RUNTIME_KEY_REQUIRED`) + `96 KB` decoy VM | **~100% Geometry Blocked** (`0` verts/UVs/textures/shaders/WebGL; AES-GCM wire + `0.999+` blind 64-bit WM) |
+| **Tier 4a: Anti-Detect Browsers (CloakBrowser 146)** | **100% Denied (`STEALTH_BROWSER_DENIED`)** at loader, server attestation, and inline inside extracted hardened `.mjs` Web Components | **100% Denied (`STEALTH_BROWSER_DENIED`)** (`0` handshakes in both `strict` and `balanced`) |
+| **Tier 4b: Custom Zero-Noise Patched Chromium + Human** | **Irreducible client-JS boundary**: keep truly secret keys/formulas server-only via [`vibeslayer-policy-kit`](vibeslayer-policy-kit/README.md) | **No mesh/UV/PBR recovery**: only rate-limited, single-in-flight, focal/tilt-drifted 2D frames, each carrying a blind 64-bit buyer watermark |
+
+---
+
+## Documentation
+
+| Audience | Guide | Topics |
+| :--- | :--- | :--- |
+| **Beginners** | **[Plain-English Beginner's Guide](docs/getting-started-beginners.md)** | `./vibe-slayer ask` and `explain` with copy-paste everyday recipes |
+| **Evaluators & CTOs** | **[Vision & Head-to-Head Benchmarks](docs/vision-and-benchmarks.md)** | Why static obfuscation failed vs. AI agents + full `BLA v3.2.1` benchmarks |
+| **Frontend & Web Devs** | **[Live Websites & Web Components](docs/web-and-web-components.md)** | Standalone `.vsweb` ECDH P-256 runtime, Shadow DOM, `--harden-js`, `--anti-cdp`, and `--anti-stealth` |
+| **3D & Spatial Teams** | **[3D Shield & Encrypted Stream](docs/3d-shield-and-stream.md)** | `--mode stream` (zero-geometry AES-GCM frames) vs. `--mode gpu` (60 FPS WebGL2) & 64-bit forensic tracing |
+| **Backend & Systems** | **[Native Binaries & Polyglot SDKs](docs/native-binaries-and-sdks.md)** | Repo auto-classification, static-PIE ELF64 (`CET` + `memfd_secret`), and Rust/C/Go/Python/JS SDKs |
+| **DevOps & SecOps** | **[Deployment & Security Proxies](docs/deployment-and-security-proxies.md)** | RFC 9112 proxy compliance, Nginx/Caddy configs, `--trust-proxy`, security proxy testing & troubleshooting |
+| **Power Users** | **[CLI Reference & Configuration](docs/cli-and-configuration.md)** | Every subcommand, preset matrix, `vibeslayer.config.json` schema, and environment variables |
+| **Security Auditors** | **[Threat Model & Empirical Proofs](docs/threat-model-and-benchmarks.md)** | Tier 1–4 adversary matrix, 6 anti-stealth hardware invariants, and irreducible browser boundaries |
+
+---
+
+## Ecosystem
+
+- **[Vibe-Slayer](https://github.com/HUSMUS9999/vibe-slayer)** *(this repository)* — Full-stack zero-dependency asset, binary, website/Web Component, AI weight, and 3D stream protection platform.
+- **[ProxySnare](https://github.com/HUSMUS9999/proxysnare)** — Standalone middleware & CLI shield that detects and blocks intercepting HTTP proxies and automated repeaters.
+- **[CloakGate](https://github.com/HUSMUS9999/cloakgate)** — Drop-in browser SDK, `<cloak-gate>` Web Component, and reverse-proxy middleware for detecting and blocking anti-detect and stealth browsers.
+
+---
+
+## Building Everything & Running Tests
 
 ### Prerequisites
-- **Building from source (`make all`)**: Rust (`rustc`/`cargo`), `gcc` (Linux C SDK), and optional `x86_64-w64-mingw32-gcc` + `rustup target add x86_64-pc-windows-gnu` for Windows cross-builds.
+
+- **Core binary**: Rust (`rustc` / `cargo`) — zero external crates.
+- **Full cross-build + C SDK (`make all`)**: `gcc`, plus optional `x86_64-w64-mingw32-gcc` and `rustup target add x86_64-pc-windows-gnu` for Windows `PE32+` targets.
 - **Companion JS packages**: Node.js `>= 20.0.0` (zero npm dependencies).
 - **Full Python verification suite**: Python `>= 3.10` with `cryptography` and `Pillow` (plus Chrome/Chromium for live CDP tests).
 
@@ -194,3 +212,9 @@ make -C vibeslayer-native-core test
 npm test --prefix vibeslayer-suite
 npm test --prefix vibeslayer-policy-kit
 ```
+
+---
+
+## License
+
+MIT License — see [LICENSE](LICENSE).

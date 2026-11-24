@@ -1,21 +1,20 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="246" height="24" viewBox="0 0 246 24" role="img" aria-label="CORE: RUST + C99 (0 CRATES)">
-  <defs>
-    <linearGradient id="iceBg" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#0A1929"/>
-      <stop offset="100%" stop-color="#051929"/>
-    </linearGradient>
-    <clipPath id="round">
-      <rect width="246" height="24" rx="5"/>
-    </clipPath>
-  </defs>
-  <g clip-path="url(#round)">
-    <rect width="54" height="24" fill="#000000"/>
-    <rect x="54" width="192" height="24" fill="url(#iceBg)"/>
-    <rect x="54" width="1" height="24" fill="#38BDF8" fill-opacity="0.5"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="115" height="20" viewBox="0 0 115 20" role="img" aria-label="core: Rust + C99">
+  <linearGradient id="s" x2="0" y2="100%">
+    <stop offset="0" stop-color="#bbb" stop-opacity=".12"/>
+    <stop offset="1" stop-opacity=".14"/>
+  </linearGradient>
+  <clipPath id="r">
+    <rect width="115" height="20" rx="3" fill="#fff"/>
+  </clipPath>
+  <g clip-path="url(#r)">
+    <rect width="35" height="20" fill="#4B5563"/>
+    <rect x="35" width="80" height="20" fill="#C2410C"/>
+    <rect width="115" height="20" fill="url(#s)"/>
   </g>
-  <rect x="0.5" y="0.5" width="245" height="23" rx="4.5" fill="none" stroke="#38BDF8" stroke-opacity="0.6" stroke-width="1"/>
-  <g font-family="DejaVu Sans,Verdana,Geneva,sans-serif" font-size="9.8" font-weight="700" text-anchor="middle" letter-spacing="0.35">
-    <text x="27.0" y="15.3" fill="#94A3B8">CORE</text>
-    <text x="150.0" y="15.3" fill="#E0F2FE">RUST + C99 (0 CRATES)</text>
+  <g fill="#fff" text-anchor="middle" font-family="Verdana,Geneva,DejaVu Sans,sans-serif" text-rendering="geometricPrecision" font-size="10.6">
+    <text aria-hidden="true" x="17.5" y="14.6" fill="#010101" fill-opacity=".3">core</text>
+    <text x="17.5" y="13.7">core</text>
+    <text aria-hidden="true" x="75.0" y="14.6" fill="#010101" fill-opacity=".3" font-weight="600">Rust + C99</text>
+    <text x="75.0" y="13.7" font-weight="600">Rust + C99</text>
   </g>
 </svg>

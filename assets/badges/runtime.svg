@@ -1,21 +1,20 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="198" height="24" viewBox="0 0 198 24" role="img" aria-label="RUNTIME: ZERO NODE.JS">
-  <defs>
-    <linearGradient id="iceBg" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#0A1929"/>
-      <stop offset="100%" stop-color="#04202B"/>
-    </linearGradient>
-    <clipPath id="round">
-      <rect width="198" height="24" rx="5"/>
-    </clipPath>
-  </defs>
-  <g clip-path="url(#round)">
-    <rect width="78" height="24" fill="#000000"/>
-    <rect x="78" width="120" height="24" fill="url(#iceBg)"/>
-    <rect x="78" width="1" height="24" fill="#22D3EE" fill-opacity="0.5"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="134" height="20" viewBox="0 0 134 20" role="img" aria-label="runtime: standalone">
+  <linearGradient id="s" x2="0" y2="100%">
+    <stop offset="0" stop-color="#bbb" stop-opacity=".12"/>
+    <stop offset="1" stop-opacity=".14"/>
+  </linearGradient>
+  <clipPath id="r">
+    <rect width="134" height="20" rx="3" fill="#fff"/>
+  </clipPath>
+  <g clip-path="url(#r)">
+    <rect width="54" height="20" fill="#4B5563"/>
+    <rect x="54" width="80" height="20" fill="#4F46E5"/>
+    <rect width="134" height="20" fill="url(#s)"/>
   </g>
-  <rect x="0.5" y="0.5" width="197" height="23" rx="4.5" fill="none" stroke="#22D3EE" stroke-opacity="0.6" stroke-width="1"/>
-  <g font-family="DejaVu Sans,Verdana,Geneva,sans-serif" font-size="9.8" font-weight="700" text-anchor="middle" letter-spacing="0.35">
-    <text x="39.0" y="15.3" fill="#94A3B8">RUNTIME</text>
-    <text x="138.0" y="15.3" fill="#CFFAFE">ZERO NODE.JS</text>
+  <g fill="#fff" text-anchor="middle" font-family="Verdana,Geneva,DejaVu Sans,sans-serif" text-rendering="geometricPrecision" font-size="10.6">
+    <text aria-hidden="true" x="27.0" y="14.6" fill="#010101" fill-opacity=".3">runtime</text>
+    <text x="27.0" y="13.7">runtime</text>
+    <text aria-hidden="true" x="94.0" y="14.6" fill="#010101" fill-opacity=".3" font-weight="600">standalone</text>
+    <text x="94.0" y="13.7" font-weight="600">standalone</text>
   </g>
 </svg>

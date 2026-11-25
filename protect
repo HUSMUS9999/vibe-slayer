@@ -2,10 +2,12 @@
 DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
 if [ -x "$DIR/vibe-slayer" ]; then
   exec "$DIR/vibe-slayer" "$@"
+elif [ -x "$DIR/target/release/vibe-slayer" ]; then
+  exec "$DIR/target/release/vibe-slayer" "$@"
 elif [ -x "$DIR/vibeslayer-native-core/rust_core/target/release/vibe-slayer" ]; then
   exec "$DIR/vibeslayer-native-core/rust_core/target/release/vibe-slayer" "$@"
 else
   echo "vibe-slayer binary not built yet. Build it first:" >&2
-  echo "  cargo build --release --manifest-path vibeslayer-native-core/rust_core/Cargo.toml" >&2
+  echo "  cargo build --release --bin vibe-slayer" >&2
   exit 1
 fi

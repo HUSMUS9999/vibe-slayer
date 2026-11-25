@@ -1,6 +1,9 @@
 """
-`vibeslayer` Python Native SDK (`v1.0.0-beta.3`) — Zero Node.js, backed directly
+`vibeslayer` Python Native SDK (`v2.0.0-alpha.1`) — Zero Node.js, backed directly
 by compiled C shared library `bin/libvibeslayer.so` via `ctypes`.
+
+Supports 64-bit streaming VSPK3 v2 (`unseal_action_vspk3_v2_file`, constant ~132 KiB RAM,
+no 2 GiB cap) as well as legacy VSPK3 v1 / VSPK2, with unified opaque `VaultAuthError`.
 """
 
 from __future__ import annotations
@@ -10,6 +13,11 @@ import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
+
+
+class VaultAuthError(RuntimeError):
+    """Unified opaque authentication error (never leaks commitment vs MAC vs padding)."""
+
 
 _BIN_DIR = Path(__file__).resolve().parent.parent / "bin"
 if sys.platform == "win32":
@@ -62,6 +70,16 @@ _LIB.vs_unseal_vspk3.argtypes = [
     ctypes.c_size_t,
 ]
 _LIB.vs_unseal_vspk3.restype = ctypes.c_int
+
+_LIB.vs_unseal_vspk3_v2_chacha20_file.argtypes = [
+    ctypes.c_void_p,
+    ctypes.c_char_p,
+    ctypes.c_char_p,
+    ctypes.c_char_p,
+    ctypes.c_char_p,
+    ctypes.c_char_p,
+]
+_LIB.vs_unseal_vspk3_v2_chacha20_file.restype = ctypes.c_int64
 
 
 @dataclass(frozen=True)
@@ -133,15 +151,7 @@ class Policy:
     ) -> bytes:
         rule = self.validate_params(action, params)
         if len(vspk_bytes) < 40 or vspk_bytes[:5] != b"VSPK2":
-            raise ValueError("BAD_VSPK2_HEADER")
-        dlen = int.from_bytes(vspk_bytes[6:8], "little")
-        alen = int.from_bytes(vspk_bytes[8:10], "little")
-        if dlen > 128 or alen > 128 or 40 + dlen + alen > len(vspk_bytes):
-            raise ValueError("TRUNCATED_VSPK2")
-        hdr_asset_id = vspk_bytes[40 + dlen : 40 + dlen + alen].decode("utf-8", errors="strict")
-        if hdr_asset_id != asset_id:
-            raise PermissionError("ASSET_ID_MISMATCH")
-
+            raise VaultAuthError("VAULT_AUTH_FAILED")
         mk_buf = (ctypes.c_uint8 * 32).from_buffer(self._master_key)
         out_buf = ctypes.create_string_buffer(len(vspk_bytes))
         try:
@@ -156,7 +166,7 @@ class Policy:
                 len(vspk_bytes),
             )
             if rc < 0:
-                raise RuntimeError(f"AEAD_OR_POLICY_UNSEAL_FAILED:{rc}")
+                raise VaultAuthError("VAULT_AUTH_FAILED")
             return out_buf.raw[:rc]
         finally:
             ctypes.memset(out_buf, 0, len(out_buf))
@@ -171,7 +181,7 @@ class Policy:
     ) -> bytes:
         rule = self.validate_params(action, params)
         if len(vspk_bytes) < 92 + 1024:
-            raise ValueError("TRUNCATED_VSPK3")
+            raise VaultAuthError("VAULT_AUTH_FAILED")
 
         mk_buf = (ctypes.c_uint8 * 32).from_buffer(self._master_key)
         out_buf = ctypes.create_string_buffer(len(vspk_bytes))
@@ -187,7 +197,31 @@ class Policy:
                 len(vspk_bytes),
             )
             if rc < 0:
-                raise RuntimeError(f"VSPK3_UNSEAL_FAILED:{rc}")
+                raise VaultAuthError("VAULT_AUTH_FAILED")
             return out_buf.raw[:rc]
         finally:
             ctypes.memset(out_buf, 0, len(out_buf))
+
+    def unseal_action_vspk3_v2_file(
+        self,
+        *,
+        action: str,
+        params: dict[str, Any],
+        asset_id: str,
+        in_path: str | Path,
+        out_path: str | Path,
+    ) -> int:
+        """Stream-unseal a 64-bit VSPK3 v2 ChaCha20-Poly1305 vault file in constant ~132 KiB RAM."""
+        rule = self.validate_params(action, params)
+        mk_buf = (ctypes.c_uint8 * 32).from_buffer(self._master_key)
+        plain_bytes = _LIB.vs_unseal_vspk3_v2_chacha20_file(
+            mk_buf,
+            rule.domain.encode("utf-8"),
+            asset_id.encode("utf-8"),
+            rule.context.encode("utf-8"),
+            str(in_path).encode("utf-8"),
+            str(out_path).encode("utf-8"),
+        )
+        if plain_bytes < 0:
+            raise VaultAuthError("VAULT_AUTH_FAILED")
+        return int(plain_bytes)

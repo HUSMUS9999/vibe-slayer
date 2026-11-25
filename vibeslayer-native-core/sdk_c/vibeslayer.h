@@ -12,6 +12,8 @@
 #define VS_API
 #endif
 
+#define VS_ERR_AUTH (-1)
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -19,9 +21,8 @@ extern "C" {
 VS_API int vs_harden_process(void);
 
 /*
- * Unseals a `VSPK2` binary container produced by Rust, Go, Python, or C.
- * Returns >= 0 (plaintext byte length written to `plain_out`) on success,
- * or negative error code (`-1` header/args, `-2` domain/context denied, `-3` Poly1305 MAC failed).
+ * Legacy VSPK2 buffer unseal (kept for wire compatibility).
+ * Returns >= 0 (plaintext bytes written) or VS_ERR_AUTH (-1) on any auth/bounds failure.
  */
 VS_API int vs_unseal_vspk2(
     const uint8_t master_key32[32],
@@ -33,10 +34,6 @@ VS_API int vs_unseal_vspk2(
     size_t plain_cap
 );
 
-/*
- * Unseals a `VSPK2` container while also binding & verifying `expected_asset_id`.
- * Returns >= 0 on success, or negative error code (`-1` header/args, `-2` policy/asset mismatch, `-3` MAC failed).
- */
 VS_API int vs_unseal_vspk2_for_asset(
     const uint8_t master_key32[32],
     const char *expected_domain,
@@ -49,11 +46,8 @@ VS_API int vs_unseal_vspk2_for_asset(
 );
 
 /*
- * Unseals a headerless key-committing `VSPK3` container produced by Rust or Go.
- * Verifies CMT-4 HMAC commitment in constant time before ChaCha20-Poly1305 AEAD
- * and unframes the 1024-byte pad-then-encrypt inner buffer.
- * Returns >= 0 (plaintext byte length written to `plain_out`) on success,
- * or negative error code (`-1` args/bounds, `-3` Poly1305/length fail, `-4` CMT-4 fail).
+ * Legacy VSPK3 v1 buffer unseal with unified opaque VS_ERR_AUTH (-1) on any failure
+ * (eliminates CMT-4 vs AEAD vs padding error oracles).
  */
 VS_API int vs_unseal_vspk3(
     const uint8_t master_key32[32],
@@ -64,6 +58,21 @@ VS_API int vs_unseal_vspk3(
     size_t vspk_len,
     uint8_t *plain_out,
     size_t plain_cap
+);
+
+/*
+ * 64-bit streaming VSPK3 v2 ChaCha20-Poly1305 + Bellare-Hoang Ctx/UtC CMT-4 file unseal.
+ * Uses constant ~132 KiB RAM with NO 2 GiB INT_MAX cap (supports multi-terabyte files),
+ * bit-for-bit wire-compatible with Rust `vs-vault::seal_vspk3_v2_stream(..., AeadAlg::ChaCha20Poly1305)`.
+ * Returns plaintext byte count (>= 0) on success, or VS_ERR_AUTH (-1) on any error.
+ */
+VS_API int64_t vs_unseal_vspk3_v2_chacha20_file(
+    const uint8_t master_key32[32],
+    const char *expected_domain,
+    const char *asset_id,
+    const char *expected_context,
+    const char *in_path,
+    const char *out_path
 );
 
 #ifdef __cplusplus

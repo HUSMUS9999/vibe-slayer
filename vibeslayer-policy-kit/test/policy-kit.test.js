@@ -633,3 +633,136 @@ test("antiStealth strict/balanced denies CloakBrowser invariants and headless he
   }
 });
 
+
+test("v2 observe mode, onDecision audit hook, and reusable Node/Fetch middleware adapters", async () => {
+  const {
+    createNodeMiddleware,
+    createFetchHandler,
+    verifyStealthRequest,
+  } = require("../src/index.js");
+
+  const decisions = [];
+  const secret = crypto.randomBytes(32);
+  const policy = definePolicy({
+    version: "2.0.0-alpha.1",
+    enabled: true,
+    antiStealth: "observe",
+    signingSecret: secret,
+    onDecision: (ev) => decisions.push(ev),
+    actions: {
+      "catalog.read": {
+        mode: "server-only",
+        requiredScopes: ["catalog:read"],
+        allowedOrigins: ["https://shop.example.test"],
+        maxUses: 5,
+        params: { sku: { type: "string", minLength: 1, maxLength: 32 } },
+        handler: async ({ params }) => ({ sku: params.sku, priceUsd: 49 }),
+      },
+    },
+  });
+
+  // observe mode MUST score suspicious headers without blocking privacy/edge browsers
+  const obs = verifyStealthRequest({
+    mode: "observe",
+    headers: { "user-agent": "Mozilla/5.0 HeadlessChrome/130.0" },
+    actionName: "catalog.read",
+    origin: "https://shop.example.test",
+  });
+  assert.equal(obs.blocked, false);
+  assert.ok(obs.riskScore >= 4);
+  assert.ok(obs.signals.includes("AUTOMATION_HEADER_MARKER"));
+
+  const gateway = createGateway(policy);
+  const lease = gateway.issueLease({
+    subject: "buyer-9",
+    scopes: ["catalog:read"],
+    origin: "https://shop.example.test",
+    action: "catalog.read",
+    maxUses: 5,
+  });
+
+  // Web Fetch API adapter (Cloudflare Workers / Deno / Next.js Route Handler)
+  const fetchHandler = createFetchHandler(gateway);
+  const req = new Request("https://edge.example.test/v1/action/catalog.read", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      origin: "https://shop.example.test",
+      authorization: `Bearer ${lease}`,
+      "user-agent": "Mozilla/5.0 HeadlessChrome/130.0",
+    },
+    body: JSON.stringify({ params: { sku: "watch-pro" } }),
+  });
+  const res = await fetchHandler(req);
+  assert.equal(res.status, 200);
+  // Loop 3 HIGH-5: POST responses MUST emit Access-Control-Allow-Origin & Vary: Origin for allowed origins!
+  assert.equal(res.headers.get("access-control-allow-origin"), "https://shop.example.test");
+  assert.equal(res.headers.get("vary"), "Origin");
+  // Loop 3 MED-10: non-12-byte GCM IV must be rejected cleanly
+  assert.throws(
+    () => unsealAssetAes256Gcm({ iv: Buffer.from([1]), tag: Buffer.alloc(16), ciphertext: Buffer.alloc(1) }, Buffer.alloc(32)),
+    /12-byte IV/
+  );
+  const body = await res.json();
+  assert.equal(body.ok, true);
+  assert.equal(body.data.sku, "watch-pro");
+  assert.ok(decisions.some((d) => d.action === "catalog.read" && d.riskScore >= 4 && d.blocked === false));
+
+  // Express/Node middleware adapter delegates unrelated routes to next()
+  const mw = createNodeMiddleware(gateway);
+  let nextCalled = false;
+  mw({ url: "/healthz" }, {}, () => { nextCalled = true; });
+  assert.equal(nextCalled, true);
+
+  // Loop 2 regression: OPTIONS CORS preflight through createFetchHandler -> 204
+  const optRes = await fetchHandler(
+    new Request("https://edge.example.test/v1/action/catalog.read", {
+      method: "OPTIONS",
+      headers: {
+        origin: "https://shop.example.test",
+        "access-control-request-method": "POST",
+      },
+    })
+  );
+  assert.equal(optRes.status, 204);
+  assert.equal(optRes.headers.get("access-control-allow-origin"), "https://shop.example.test");
+
+  // Loop 2 regression: prototype property action names must return 404, never crash
+  for (const protoName of ["__proto__", "toString", "constructor"]) {
+    const pRes = await fetchHandler(
+      new Request(`https://edge.example.test/v1/action/${protoName}`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: "{}",
+      })
+    );
+    assert.equal(pRes.status, 404);
+  }
+
+  // Loop 2 regression: streaming Web Fetch body > maxBodyBytes -> 413 without OOM
+  const tinyPolicy = definePolicy({
+    enabled: true,
+    signingSecret: secret,
+    maxBodyBytes: 64,
+    actions: {
+      "catalog.read": {
+        mode: "public-preview",
+        params: {},
+        handler: async () => ({ ok: true }),
+      },
+    },
+  });
+  const tinyGw = createGateway(tinyPolicy);
+  const tinyFetch = createFetchHandler(tinyGw);
+  const bigRes = await tinyFetch(
+    new Request("https://edge.example.test/v1/action/catalog.read", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ pad: "A".repeat(256) }),
+    })
+  );
+  assert.equal(bigRes.status, 413);
+  await tinyGw.close();
+
+  await gateway.close();
+});

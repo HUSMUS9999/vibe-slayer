@@ -1,11 +1,9 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1040" height="620" viewBox="0 0 1040 620" role="img" aria-label="Vibe-Slayer Protection Architecture and Trust Boundaries">
+<svg xmlns="http://www.w3.org/2000/svg" width="1040" height="620" viewBox="0 0 1040 620" role="img" aria-label="Vibe-Slayer v2 Modular Protection Architecture and Trust Boundaries">
   <defs>
-    <!-- Subtle precision CAD dot pattern -->
     <pattern id="cad-dots" width="20" height="20" patternUnits="userSpaceOnUse">
       <circle cx="10" cy="10" r="0.65" fill="#1E293B" opacity="0.42"/>
     </pattern>
 
-    <!-- Solid precision triangle markers -->
     <marker id="arr-art" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto">
       <path d="M 0.5 1 L 7.2 4 L 0.5 7 Z" fill="#64748B"/>
     </marker>
@@ -19,7 +17,6 @@
       <path d="M 0.5 1 L 7.2 4 L 0.5 7 Z" fill="#10B981"/>
     </marker>
 
-    <!-- Clip paths for razor-sharp 2px top-edge cyan rails on active runtime servers -->
     <clipPath id="clip-canvas"><rect x="1" y="1" width="1038" height="618" rx="10"/></clipPath>
     <clipPath id="clip-srv-1"><rect x="362" y="98" width="248" height="104" rx="4"/></clipPath>
     <clipPath id="clip-srv-2"><rect x="362" y="214" width="248" height="136" rx="4"/></clipPath>
@@ -31,7 +28,7 @@
 
       .hdr-brand { font-size: 12.5px; font-weight: 700; fill: #F1F5F9; letter-spacing: 0.9px; }
       .hdr-sub   { font-size: 9.8px; font-weight: 500; fill: #94A3B8; letter-spacing: 0.7px; }
-      .hdr-pkgs  { font-size: 9.4px; font-weight: 400; fill: #64748B; text-anchor: end; }
+      .hdr-pkgs  { font-size: 9.1px; font-weight: 400; fill: #64748B; text-anchor: end; }
 
       .zone-lbl      { font-size: 9.4px; font-weight: 700; fill: #94A3B8; letter-spacing: 0.85px; }
       .zone-lbl-acc  { font-size: 9.4px; font-weight: 700; fill: #38BDF8; letter-spacing: 0.85px; }
@@ -64,7 +61,6 @@
     </style>
   </defs>
 
-  <!-- OBSIDIAN CANVAS PLATE + SUBTLE CAD DOT FIELD -->
   <rect x="1" y="1" width="1038" height="618" rx="10" fill="#05070B"/>
   <g clip-path="url(#clip-canvas)">
     <rect x="1" y="50" width="1038" height="532" fill="url(#cad-dots)"/>
@@ -72,237 +68,208 @@
   </g>
   <rect x="1" y="1" width="1038" height="618" rx="10" fill="none" stroke="#1E293B" stroke-width="1"/>
 
-  <!-- TOP SCHEMATIC HEADER RAIL -->
   <g id="header-rail">
     <polygon points="28,21 33.5,26.5 28,32 22.5,26.5" fill="none" stroke="#38BDF8" stroke-width="1.35"/>
     <circle cx="28" cy="26.5" r="1.4" fill="#38BDF8"/>
-    <text class="sans hdr-brand" x="42" y="30.5">VIBE-SLAYER</text>
-    <text class="mono hdr-sub" x="148" y="30.2"><tspan fill="#334155">/</tspan>  PROTECTION ARCHITECTURE &amp; TRUST BOUNDARIES</text>
-    <text class="mono hdr-pkgs" x="1016" y="30.2">vibeslayer-native-core · vibeslayer-suite · vibeslayer-policy-kit</text>
+    <text class="sans hdr-brand" x="42" y="30.5">VIBE-SLAYER v2</text>
+    <text class="mono hdr-sub" x="166" y="30.2"><tspan fill="#334155">/</tspan>  MODULAR ARCHITECTURE &amp; TRUST BOUNDARIES</text>
+    <text class="mono hdr-pkgs" x="1016" y="30.2">crates/vs-* · forbid(unsafe_code) · ring (BoringSSL)</text>
     <line x1="1" y1="50" x2="1039" y2="50" stroke="#151E2C" stroke-width="1"/>
   </g>
 
-  <!-- THREE SECURITY ZONES + VERTICAL TRUST BOUNDARY CHANNEL -->
   <g id="zone-frames">
-    <!-- Zone I: Offline Build & Seal -->
     <text class="mono zone-lbl" x="26" y="76">OFFLINE BUILD &amp; SEAL</text>
     <text class="mono zone-sub" x="286" y="76">LOCAL · CI</text>
     <rect x="24" y="86" width="264" height="488" rx="6" fill="#080C12" stroke="#162030" stroke-width="1"/>
 
-    <!-- Zone II: Trusted Runtime & Policy -->
     <text class="mono zone-lbl-acc" x="352" y="76">TRUSTED RUNTIME &amp; POLICY</text>
     <text class="mono zone-sub" x="620" y="76">SERVER · VAULT</text>
     <rect x="350" y="86" width="272" height="488" rx="6" fill="#080F18" stroke="#192D42" stroke-width="1"/>
 
-    <!-- Vertical Cryptographic Trust Boundary -->
     <line x1="683" y1="86" x2="683" y2="574" stroke="#38BDF8" stroke-width="1.2" stroke-dasharray="4 4" opacity="0.62"/>
     <rect x="631" y="64" width="104" height="17" rx="3" fill="#071828" stroke="#1E4968" stroke-width="0.9"/>
     <text class="mono tb-stamp" x="683" y="75.3">TRUST BOUNDARY</text>
 
-    <!-- Zone III: Untrusted Execution -->
     <text class="mono zone-lbl" x="746" y="76">UNTRUSTED EXECUTION</text>
     <text class="mono zone-sub" x="1014" y="76">CLIENT · HOST</text>
     <rect x="744" y="86" width="272" height="488" rx="6" fill="#06090E" stroke="#1A2434" stroke-width="1" stroke-dasharray="4 3"/>
   </g>
 
-  <!-- ==================== BAND 1: LIVE WEBSITES & WEB COMPONENTS ==================== -->
+  <!-- ==================== BAND 1: AUTHENTICATED .VSWEB V2 BUNDLES ==================== -->
   <g id="band-web">
-    <!-- Zone I -->
     <rect x="36" y="98" width="240" height="104" rx="4" fill="#0C111B" stroke="#1E293B" stroke-width="1"/>
-    <text x="48" y="118"><tspan class="mono node-cmd">website</tspan><tspan class="sans node-ttl"> · Web Builder</tspan></text>
-    <text class="sans line-hi" x="48" y="137">AES-256-GCM .vsweb + rtKey JS</text>
-    <text class="sans line-md" x="48" y="154">Boot anti-CDP + inline stealth guard</text>
-    <text class="mono mono-dim" x="48" y="171">vibeslayer.web.json · /loader.js</text>
-    <text class="mono mono-lo" x="48" y="191">rust_core/src/web_runtime.rs</text>
+    <text x="48" y="118"><tspan class="mono node-cmd">website</tspan><tspan class="sans node-ttl"> · .vsweb v2 Builder</tspan></text>
+    <text class="sans line-hi" x="48" y="137">Per-asset HKDF AES-256-GCM</text>
+    <text class="sans line-md" x="48" y="154">HMAC-SHA256 manifest + typed AAD</text>
+    <text class="mono mono-dim" x="48" y="171">VSWEBV02 · 0600 key generation</text>
+    <text class="mono mono-lo" x="48" y="191">crates/vs-server/src/web.rs</text>
 
-    <!-- Artifact wire -->
     <circle cx="276" cy="150" r="2.1" fill="#64748B"/>
     <line x1="278" y1="150" x2="359" y2="150" stroke="#64748B" stroke-width="1.2" marker-end="url(#arr-art)"/>
     <text class="mono wire-art-lbl" x="319" y="143">.vsweb</text>
 
-    <!-- Zone II (Active Server) -->
     <rect x="362" y="98" width="248" height="104" rx="4" fill="#0B1522" stroke="#1E4968" stroke-width="1.1"/>
     <g clip-path="url(#clip-srv-1)"><rect x="362" y="98" width="248" height="2" fill="#38BDF8"/></g>
-    <text x="374" y="118"><tspan class="mono node-cmd">serve</tspan><tspan class="sans node-ttl"> · RFC 9112 HTTP/1.1</tspan></text>
-    <text class="mono mono-hi" x="374" y="137">POST /__vibeslayer/lease (ECDH P-256)</text>
-    <text class="sans line-md" x="374" y="154">Single-use IP HMAC tickets</text>
-    <text class="sans line-md" x="374" y="171">Origin header &amp; VS_ATTEST_V1 check</text>
-    <text class="mono mono-lo" x="374" y="191">Nginx · Caddy · Cloudflare compatible</text>
+    <text x="374" y="118"><tspan class="mono node-cmd">serve</tspan><tspan class="sans node-ttl"> · Async Tokio / Axum</tspan></text>
+    <text class="mono mono-hi" x="374" y="137">POST /__vibeslayer/lease (ECDH)</text>
+    <text class="sans line-md" x="374" y="154">Fail-closed scoped bearer + jti</text>
+    <text class="sans line-md" x="374" y="171">Immutable /assets/* + SPA shell</text>
+    <text class="mono mono-lo" x="374" y="191">vs-server (feature = "web")</text>
 
-    <!-- Trust boundary bidirectional wire -->
     <line x1="613" y1="150" x2="753" y2="150" stroke="#38BDF8" stroke-width="1.35" marker-start="url(#arr-enc-rev)" marker-end="url(#arr-enc)"/>
     <rect x="631" y="135" width="104" height="30" rx="3" fill="#05070B" stroke="#1E3A52" stroke-width="0.9"/>
     <text class="mono wire-enc-lbl" x="683" y="147.5">ECDH P-256</text>
-    <text class="mono wire-sub-lbl" x="683" y="159">AES-GCM + attest</text>
+    <text class="mono wire-sub-lbl" x="683" y="159">pubkey-bound HKDF</text>
 
-    <!-- Zone III -->
     <rect x="756" y="98" width="248" height="104" rx="4" fill="#0C111B" stroke="#1E293B" stroke-width="1"/>
     <circle cx="771" cy="114" r="3" fill="#10B981"/>
-    <text class="sans node-ttl" x="781" y="118">Browser WebCrypto</text>
+    <text class="sans node-ttl" x="781" y="118">Closure-Scoped WebCrypto</text>
     <text class="mono mono-hi" x="768" y="137">CryptoKey { extractable: false }</text>
-    <text class="sans line-md" x="768" y="154">0 offline plaintext bits on disk/CDN</text>
-    <text class="sans line-md" x="768" y="171">Shadow DOM &amp; Custom Elements</text>
-    <text class="mono mono-lo" x="768" y="191">Runtime-keyed blob · offline-dead JS</text>
+    <text class="sans line-md" x="768" y="154">0 global window key manifests</text>
+    <text class="sans line-md" x="768" y="171">Per-token cache + transient retry</text>
+    <text class="mono mono-lo" x="768" y="191">/__vibeslayer/loader.js</text>
   </g>
 
-  <!-- ==================== BAND 2: INTERACTIVE 3D ASSETS (.GLB) ==================== -->
+  <!-- ==================== BAND 2: ZERO-GEOMETRY 3D STREAMING & FORENSICS ==================== -->
   <g id="band-3d">
-    <!-- Zone I -->
     <rect x="36" y="214" width="240" height="136" rx="4" fill="#0C111B" stroke="#1E293B" stroke-width="1"/>
-    <text x="48" y="234"><tspan class="mono node-cmd">shield-3d</tspan><tspan class="sans node-ttl"> · Mesh Cooker</tspan></text>
-    <text class="sans line-hi" x="48" y="254">Cooks .glb → scene.vsshield2</text>
-    <text class="sans line-md" x="48" y="272">Encrypted tile atlases + chaff tris</text>
-    <text class="sans line-md" x="48" y="290">External .vsshield.key (no raw .glb)</text>
-    <text class="sans line-md" x="48" y="308">64-bit forensic buyer watermark</text>
-    <text class="mono mono-lo" x="48" y="338">shield_viewer.rs · raster_stream.rs</text>
+    <text x="48" y="234"><tspan class="mono node-cmd">vs-3d</tspan><tspan class="sans node-ttl"> · PBR + Anti-3DGS</tspan></text>
+    <text class="sans line-hi" x="48" y="254">Bounded multi-SKU glTF catalog</text>
+    <text class="sans line-md" x="48" y="272">Optical tilt-shift + smooth harmonics</text>
+    <text class="sans line-md" x="48" y="290">192-bin spherical coverage budget</text>
+    <text class="sans line-md" x="48" y="308">64-bit + 32-bit MAC blind watermark</text>
+    <text class="mono mono-lo" x="48" y="338">crates/vs-3d · crates/vs-watermark</text>
 
-    <!-- Artifact wire -->
     <circle cx="276" cy="282" r="2.1" fill="#64748B"/>
     <line x1="278" y1="282" x2="359" y2="282" stroke="#64748B" stroke-width="1.2" marker-end="url(#arr-art)"/>
-    <text class="mono wire-art-lbl" x="319" y="275">.vsshield2</text>
+    <text class="mono wire-art-lbl" x="319" y="275">AssetCatalog</text>
 
-    <!-- Zone II (Active Dual Server) -->
     <rect x="362" y="214" width="248" height="136" rx="4" fill="#0B1522" stroke="#1E4968" stroke-width="1.1"/>
     <g clip-path="url(#clip-srv-2)"><rect x="362" y="214" width="248" height="2" fill="#38BDF8"/></g>
-    <text x="374" y="233"><tspan class="mono node-cmd">serve-3d</tspan><tspan class="sans node-ttl"> · Dual Render Server</tspan></text>
+    <text x="374" y="233"><tspan class="mono node-cmd">serve-3d</tspan><tspan class="sans node-ttl"> · Multi-SKU Axum</tspan></text>
 
-    <!-- Sub-lane 2A: stream (exact center y=264) -->
     <rect x="372" y="241" width="228" height="46" rx="3" fill="#0C1B28" stroke="#1E4968" stroke-width="0.95"/>
-    <text x="382" y="259"><tspan class="mono lane-cmd">stream</tspan><tspan class="sans lane-ttl"> — Server software PBR</tspan></text>
-    <text class="mono mono-md" x="382" y="276">/__vibeslayer/frame · blind 64-bit WM</text>
+    <text x="382" y="259"><tspan class="mono lane-cmd">stream</tspan><tspan class="sans lane-ttl"> — Encrypted 2D frames</tspan></text>
+    <text class="mono mono-md" x="382" y="276">/v1/models/{id}/frame · claims.sub</text>
 
-    <!-- Sub-lane 2B: gpu (exact center y=324) -->
     <rect x="372" y="301" width="228" height="46" rx="3" fill="#090E16" stroke="#1E293B" stroke-width="0.95"/>
-    <text x="382" y="319"><tspan class="mono lane-cmd2">gpu</tspan><tspan class="sans lane-ttl"> — 60 FPS shader cipher</tspan></text>
-    <text class="mono mono-dim" x="382" y="336">/__vibeslayer/session · /tex · /camera</text>
+    <text x="382" y="319"><tspan class="mono lane-cmd2">trace-3d</tspan><tspan class="sans lane-ttl"> — Blind FFT/DCT MAC</tspan></text>
+    <text class="mono mono-dim" x="382" y="336">/v1/forensics/trace (scoped + 4 MiB)</text>
 
-    <!-- Dual straight trust boundary wires (mathematically centered at y=264 and y=324) -->
     <circle cx="600" cy="264" r="2.1" fill="#10B981"/>
     <line x1="602" y1="264" x2="753" y2="264" stroke="#10B981" stroke-width="1.35" marker-end="url(#arr-iso)"/>
     <rect x="631" y="254" width="104" height="20" rx="3" fill="#05070B" stroke="#144D3D" stroke-width="0.9"/>
     <text class="mono wire-iso-lbl" x="683" y="266.8">AES-GCM frames</text>
 
     <circle cx="600" cy="324" r="2.1" fill="#38BDF8"/>
-    <line x1="602" y1="324" x2="753" y2="324" stroke="#38BDF8" stroke-width="1.3" marker-end="url(#arr-enc)"/>
+    <line x1="602" y1="324" x2="753" y2="324" stroke="#38BDF8" stroke-width="1.3" marker-start="url(#arr-enc-rev)" marker-end="url(#arr-enc)"/>
     <rect x="631" y="314" width="104" height="20" rx="3" fill="#05070B" stroke="#1E3A52" stroke-width="0.9"/>
-    <text class="mono wire-enc-lbl" x="683" y="326.8">chaff + cipher</text>
+    <text class="mono wire-enc-lbl" x="683" y="326.8">32-bit MAC WM</text>
 
-    <!-- Zone III: 2 full-width client plates (8px gap, exact centers y=264 & y=324, exact y=350 baseline) -->
-    <text class="mono micro-hdr" x="758" y="227">3D CLIENT TARGETS</text>
+    <text class="mono micro-hdr" x="758" y="227">ZERO-GEOMETRY CLIENT &amp; TRACE</text>
 
     <rect x="756" y="238" width="248" height="52" rx="4" fill="#0C111B" stroke="#1E293B" stroke-width="1"/>
     <circle cx="771" cy="252.5" r="3" fill="#10B981"/>
-    <text class="sans node-ttl-sm" x="781" y="256">Canvas2D Pixel Stream</text>
-    <text class="sans line-hi" x="768" y="271">0 vertices · 0 UVs · 0 WebGL exposed</text>
-    <text class="sans line-lo" x="768" y="283.5">Single-in-flight · blind 64-bit pixel WM</text>
+    <text class="sans node-ttl-sm" x="781" y="256">&lt;vs-3d-viewer&gt; Canvas2D</text>
+    <text class="sans line-hi" x="768" y="271">0 vertices · 0 UVs · 0 innerHTML XSS</text>
+    <text class="sans line-lo" x="768" y="283.5">SSR poster · wheel/key · 401 recovery</text>
 
     <rect x="756" y="298" width="248" height="52" rx="4" fill="#0C111B" stroke="#1E293B" stroke-width="1"/>
     <circle cx="771" cy="312.5" r="3" fill="#38BDF8"/>
-    <text class="sans node-ttl-sm" x="781" y="316">Hardened WebGL2 Client</text>
-    <text class="sans line-hi" x="768" y="331">60 FPS GPU · tile atlas + shader unseal</text>
-    <text class="sans line-lo" x="768" y="343.5">Server-baked 64-bit mesh WM</text>
+    <text class="sans node-ttl-sm" x="781" y="316">Blind Leak Attribution</text>
+    <text class="sans line-hi" x="768" y="331">Survives 20% crop · 85% scale · Q70</text>
+    <text class="sans line-lo" x="768" y="343.5">128×128 2D-FFT sync + Chase decode</text>
   </g>
 
-  <!-- ==================== BAND 3: REPOS, NATIVE ELF64 & AI WEIGHTS ==================== -->
+  <!-- ==================== BAND 3: STREAMING VAULTS & AI WEIGHTS ==================== -->
   <g id="band-vault">
-    <!-- Zone I -->
     <rect x="36" y="362" width="240" height="120" rx="4" fill="#0C111B" stroke="#1E293B" stroke-width="1"/>
-    <text class="mono node-cmd" x="48" y="381">scan · protect · wrap-elf</text>
-    <text class="sans line-hi" x="48" y="399">Auto-routes ELF64, .env, .wasm, AI</text>
-    <text class="sans line-md" x="48" y="416">VSPK3 (CMT4 + ChaCha20, 1024 B pad)</text>
-    <text class="sans line-md" x="48" y="433">Static-PIE ELF64 (Linux x86_64, gcc)</text>
-    <text class="sans line-md" x="48" y="450">VSRA 64 KiB O(1) chunks (Node suite)</text>
-    <text class="mono mono-lo" x="48" y="471">auto_cli.rs · v090_elite.rs · v100</text>
+    <text class="mono node-cmd" x="48" y="381">vault · scan · vs-nl</text>
+    <text class="sans line-hi" x="48" y="399">VSPK3 v2 STREAM (64-bit chunks)</text>
+    <text class="sans line-md" x="48" y="416">Bellare-Hoang CMT-4 · O(1) RAM</text>
+    <text class="sans line-md" x="48" y="433">VSR2 safetensors/BF16-safe chunks</text>
+    <text class="sans line-md" x="48" y="450">Offline deterministic NL planner</text>
+    <text class="mono mono-lo" x="48" y="471">crates/vs-vault · vs-crypto · vs-nl</text>
 
-    <!-- Artifact wire -->
     <circle cx="276" cy="422" r="2.1" fill="#64748B"/>
     <line x1="278" y1="422" x2="359" y2="422" stroke="#64748B" stroke-width="1.2" marker-end="url(#arr-art)"/>
-    <text class="mono wire-art-lbl" x="319" y="415">VSPK3/ELF</text>
+    <text class="mono wire-art-lbl" x="319" y="415">VSPK3 / VSR2</text>
 
-    <!-- Zone II -->
     <rect x="362" y="362" width="248" height="120" rx="4" fill="#0C111B" stroke="#1E293B" stroke-width="1"/>
-    <text class="sans node-ttl" x="374" y="381">Key Vault &amp; Lease Authority</text>
-    <text class="sans line-hi" x="374" y="399">0600 key vault + .gitignore hygiene</text>
-    <text class="sans line-md" x="374" y="416">HKDF-SHA256 domain/asset subkeys</text>
-    <text class="mono mono-hi" x="374" y="433">run (FD-3 lease) · unseal · trace</text>
-    <text class="sans line-md" x="374" y="450">Per-lease VSRA chunk grants (suite)</text>
-    <text class="mono mono-lo" x="374" y="471">lib.rs · vibeslayer-suite/authority.js</text>
+    <text class="sans node-ttl" x="374" y="381">Key Authority &amp; Atomic Commit</text>
+    <text class="sans line-hi" x="374" y="399">0600 fd-checked keys + Zeroizing</text>
+    <text class="sans line-md" x="374" y="416">HKDF domain/asset subkey isolation</text>
+    <text class="mono mono-hi" x="374" y="433">66,656 B lookahead · RAII temp</text>
+    <text class="sans line-md" x="374" y="450">O(1) VSR1 single-chunk re-sealing</text>
+    <text class="mono mono-lo" x="374" y="471">vibeslayer-core · vibeslayer-suite</text>
 
-    <!-- Dual straight trust boundary wires -->
     <circle cx="610" cy="390" r="2.1" fill="#10B981"/>
     <line x1="612" y1="390" x2="753" y2="390" stroke="#10B981" stroke-width="1.35" marker-end="url(#arr-iso)"/>
     <rect x="631" y="380" width="104" height="20" rx="3" fill="#05070B" stroke="#144D3D" stroke-width="0.9"/>
-    <text class="mono wire-iso-lbl" x="683" y="392.8">FD-3 lease key</text>
+    <text class="mono wire-iso-lbl" x="683" y="392.8">VSPK3 v2 (~2 GB/s)</text>
 
     <circle cx="610" cy="454" r="2.1" fill="#38BDF8"/>
     <line x1="612" y1="454" x2="753" y2="454" stroke="#38BDF8" stroke-width="1.3" marker-end="url(#arr-enc)"/>
     <rect x="631" y="444" width="104" height="20" rx="3" fill="#05070B" stroke="#1E3A52" stroke-width="0.9"/>
-    <text class="mono wire-enc-lbl" x="683" y="456.8">VSPK3 / VSRA</text>
+    <text class="mono wire-enc-lbl" x="683" y="456.8">VSR1 / Ed25519</text>
 
-    <!-- Zone III: 2 full-width execution plates -->
     <rect x="756" y="362" width="248" height="56" rx="4" fill="#0C111B" stroke="#1E293B" stroke-width="1"/>
     <circle cx="771" cy="378" r="3" fill="#10B981"/>
-    <text class="sans node-ttl-sm" x="781" y="381.5">Linux x86_64 Static-PIE Exec</text>
-    <text class="mono mono-hi" x="768" y="397.5">0 DT_NEEDED · Intel CET IBT+SHSTK</text>
-    <text class="sans line-lo" x="768" y="411">Sealed memfd_create / memfd_secret</text>
+    <text class="sans node-ttl-sm" x="781" y="381.5">4-Language Polyglot SDKs</text>
+    <text class="mono mono-hi" x="768" y="397.5">Rust · C99 (libvibeslayer) · Go · Py</text>
+    <text class="sans line-lo" x="768" y="411">Wire-identical AEAD + CMT-4 parity</text>
 
     <rect x="756" y="426" width="248" height="56" rx="4" fill="#0C111B" stroke="#1E293B" stroke-width="1"/>
     <circle cx="771" cy="442" r="3" fill="#38BDF8"/>
-    <text class="sans node-ttl-sm" x="781" y="445.5">Polyglot SDKs &amp; Node Suite</text>
-    <text class="sans line-hi" x="768" y="461.5">VSPK2/3: Rust · C · Go · Python</text>
-    <text class="sans line-lo" x="768" y="475">Node suite: VSRA · WASM · Web · 3D</text>
+    <text class="sans node-ttl-sm" x="781" y="445.5">Modular Node Suite (0 Deps)</text>
+    <text class="sans line-hi" x="768" y="461.5">Subpath exports + .d.ts declarations</text>
+    <text class="sans line-lo" x="768" y="475">AI VSR2 · WASM · ELF64 · Enclave</text>
   </g>
 
   <!-- ==================== BAND 4: SOURCE-CONFIGURED API POLICY BOUNDARY ==================== -->
   <g id="band-policy">
-    <!-- Zone I -->
     <rect x="36" y="494" width="240" height="68" rx="4" fill="#0C111B" stroke="#1E293B" stroke-width="1"/>
     <text x="48" y="513"><tspan class="mono node-cmd">definePolicy()</tspan><tspan class="sans node-ttl"> · Policy Spec</tspan></text>
     <text class="sans line-md" x="48" y="531">enabled: false default · typed params</text>
     <text class="mono mono-lo" x="48" y="551">vibeslayer-policy-kit/src/index.js</text>
 
-    <!-- Artifact wire -->
     <circle cx="276" cy="528" r="2.1" fill="#64748B"/>
     <line x1="278" y1="528" x2="359" y2="528" stroke="#64748B" stroke-width="1.2" marker-end="url(#arr-art)"/>
     <text class="mono wire-art-lbl" x="319" y="521">Policy</text>
 
-    <!-- Zone II (Active Gateway) -->
     <rect x="362" y="494" width="248" height="68" rx="4" fill="#0B1522" stroke="#1E4968" stroke-width="1.1"/>
     <g clip-path="url(#clip-srv-4)"><rect x="362" y="494" width="248" height="2" fill="#38BDF8"/></g>
     <text x="374" y="513"><tspan class="mono node-cmd">vibeslayer-policy-kit</tspan><tspan class="sans node-ttl"> · Gateway</tspan></text>
     <text class="sans line-hi" x="374" y="531">server-only · preview · client-sealed</text>
-    <text class="mono mono-dim" x="374" y="551">HMAC lease · replay guard · antiStealth</text>
+    <text class="mono mono-dim" x="374" y="551">Node + Web Fetch · CORS · replay guard</text>
 
-    <!-- Trust boundary wire -->
     <circle cx="610" cy="528" r="2.1" fill="#38BDF8"/>
     <line x1="612" y1="528" x2="753" y2="528" stroke="#38BDF8" stroke-width="1.3" marker-end="url(#arr-enc)"/>
     <rect x="631" y="518" width="104" height="20" rx="3" fill="#05070B" stroke="#1E3A52" stroke-width="0.9"/>
     <text class="mono wire-enc-lbl" x="683" y="530.8">HMAC + attest</text>
 
-    <!-- Zone III -->
     <rect x="756" y="494" width="248" height="68" rx="4" fill="#0C111B" stroke="#1E293B" stroke-width="1"/>
     <circle cx="771" cy="509.5" r="3" fill="#10B981"/>
-    <text class="sans node-ttl-sm" x="781" y="513">Redacted API &amp; Proxy Clients</text>
+    <text class="sans node-ttl-sm" x="781" y="513">Redacted API &amp; Edge Clients</text>
     <text class="sans line-hi" x="768" y="531">0 secret fields · 800 B bbox preview</text>
-    <text class="sans line-lo" x="768" y="551">Stealth / CDP denied (HTTP 403)</text>
+    <text class="sans line-lo" x="768" y="551">Pairs with ProxySnare &amp; VeilBreak</text>
   </g>
 
-  <!-- BOTTOM TECHNICAL LEGEND RAIL (symmetric ~36px gaps, symmetric 3-dash icon) -->
   <g id="legend-rail">
     <line x1="1" y1="582" x2="1039" y2="582" stroke="#151E2C" stroke-width="1"/>
 
     <line x1="24" y1="601" x2="39" y2="601" stroke="#64748B" stroke-width="1.3" marker-end="url(#arr-art)"/>
-    <text class="mono leg-txt" x="46" y="604">Artifact</text>
+    <text class="mono leg-txt" x="46" y="604">Build / catalog</text>
 
-    <line x1="122" y1="601" x2="137" y2="601" stroke="#38BDF8" stroke-width="1.35" marker-end="url(#arr-enc)"/>
-    <text class="mono leg-txt" x="144" y="604">Encrypted wire / lease</text>
+    <line x1="156" y1="601" x2="171" y2="601" stroke="#38BDF8" stroke-width="1.35" marker-end="url(#arr-enc)"/>
+    <text class="mono leg-txt" x="178" y="604">Encrypted wire / lease</text>
 
-    <line x1="294" y1="601" x2="309" y2="601" stroke="#10B981" stroke-width="1.35" marker-end="url(#arr-iso)"/>
-    <text class="mono leg-txt" x="316" y="604">Isolated / 0-geometry</text>
+    <line x1="328" y1="601" x2="343" y2="601" stroke="#10B981" stroke-width="1.35" marker-end="url(#arr-iso)"/>
+    <text class="mono leg-txt" x="350" y="604">Zero-geometry / streaming</text>
 
-    <line x1="462" y1="595.25" x2="462" y2="606.75" stroke="#38BDF8" stroke-width="1.2" stroke-dasharray="2.5 2"/>
-    <text class="mono leg-txt" x="470" y="604">0 plaintext / 0 master keys cross</text>
+    <line x1="518" y1="595.25" x2="518" y2="606.75" stroke="#38BDF8" stroke-width="1.2" stroke-dasharray="2.5 2"/>
+    <text class="mono leg-txt" x="526" y="604">0 plaintext / 0 master keys cross</text>
 
-    <text class="mono leg-end" x="1016" y="604">Presets: fast · balanced · paranoid</text>
+    <text class="mono leg-end" x="1016" y="604">Rust 1.98 · #![forbid(unsafe_code)]</text>
   </g>
 </svg>

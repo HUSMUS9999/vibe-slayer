@@ -1,1014 +1,1394 @@
-use std::env;
-use std::fs;
-use std::path::PathBuf;
-use vibeslayer_core::{
-    auto_cli, build_protected_elf, build_protected_elf_elite, build_protected_elf_freestanding,
-    cook_glb_vspk2, decode_wm64_o1, embed_wm64_for_lease, hex_decode, hex_encode, pack_vspk2,
-    pack_vspk3, secure_zero, sha256, trace_glb_watermark, unseal_glb_for_lease, unseal_vspk2,
-    unseal_vspk2_for_asset, unseal_vspk3_owned, wrap_elf_freestanding, VERSION,
+#![forbid(unsafe_code)]
+
+use std::fs::{self, File, OpenOptions};
+use std::io::{self, BufReader, BufWriter, Read, Write};
+use std::net::SocketAddr;
+#[cfg(unix)]
+use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
+use std::path::{Path, PathBuf};
+use std::process::ExitCode;
+use std::sync::Arc;
+
+use clap::{Args, Parser, Subcommand, ValueEnum};
+use image::{ImageReader, Limits};
+use ipnet::IpNet;
+use vibeslayer_core::{pack_vspk2, scan, unseal_vspk2, VERSION};
+use vs_3d::AssetCatalog;
+use vs_crypto::{
+    mint_session_grant, now_unix_secs, random_bytes, sha256, verify_session_grant, AeadAlg,
+    SecretKey32, SessionGrantClaims,
 };
+use vs_nl::{translate as translate_nl, NaturalPlan};
+use vs_server::web::{build_web_router, GuardMode, WebBundle, WebServerState};
+use vs_server::{build_3d_router, App3dState, Server3dConfig};
+use vs_vault::{
+    seal_vspk3_v1, seal_vspk3_v2_stream, unseal_vspk3_v1, unseal_vspk3_v2_stream,
+    verify_vspk3_v1_header_commitment, verify_vspk3_v2_header_commitment, Vspk3V2RandomAccess,
+    VSPK3_V1_PAD_QUANTUM, VSPK3_V1_PREFIX_LEN, VSPK3_V2_CHUNK_PLAIN, VSPK3_V2_PREFIX_LEN,
+};
+use vs_watermark::decode_frame_rgb_blind;
+use zeroize::Zeroizing;
 
-fn arg_val(args: &[String], flag: &str) -> Option<String> {
-    args.iter()
-        .position(|x| x == flag)
-        .and_then(|i| args.get(i + 1).cloned())
+/// Max container size permitted for legacy in-memory VSPK3 v1 fallback (prevents OOM on huge v2 files).
+const MAX_V1_FALLBACK_BYTES: u64 = 256 * 1024 * 1024;
+const MAX_WEB_FILE_BYTES: u64 = 16 * 1024 * 1024;
+const MAX_WEB_BUNDLE_BYTES: u64 = 128 * 1024 * 1024;
+
+#[derive(Parser)]
+#[command(
+    name = "vibe-slayer",
+    version = VERSION,
+    about = "Modular audited 3D pixel-streaming shield, VSPK3 v2 STREAM vault, blind forensic watermarker, and hardened web bundler"
+)]
+struct Cli {
+    #[command(subcommand)]
+    command: Commands,
 }
 
-fn parse_typed_arg<T: std::str::FromStr>(args: &[String], flag: &str) -> Result<Option<T>, String> {
-    match arg_val(args, flag) {
-        Some(v) => v
-            .parse::<T>()
-            .map(Some)
-            .map_err(|_| format!("Invalid {flag} '{v}': failed to parse number")),
-        None => Ok(None),
+/// Secure reusable key input flags (`--key-file`, `--key-stdin`, `VIBESLAYER_KEY` env fallback, or `--key`).
+#[derive(Args, Debug, Clone)]
+struct KeyArgs {
+    /// 64-hex-char 32-byte key (prefer --key-file, --key-stdin, or VIBESLAYER_KEY env to avoid argv exposure)
+    #[arg(long, conflicts_with_all = ["key_file", "key_stdin"])]
+    key: Option<String>,
+    /// Read 64-hex-char 32-byte key from a 0600 file
+    #[arg(long, conflicts_with_all = ["key", "key_stdin"])]
+    key_file: Option<PathBuf>,
+    /// Read 64-hex-char 32-byte key from standard input
+    #[arg(long, default_value_t = false, conflicts_with_all = ["key", "key_file"])]
+    key_stdin: bool,
+    /// Allow reading --key-file even if group/other permissions are set on Unix
+    #[arg(long, default_value_t = false)]
+    allow_insecure_key_file: bool,
+}
+
+impl KeyArgs {
+    fn resolve_required(&self) -> Result<SecretKey32, String> {
+        self.resolve_optional()?
+            .ok_or_else(|| "missing key: pass --key-file <PATH>, --key-stdin, or set VIBESLAYER_KEY".into())
+    }
+
+    fn resolve_optional(&self) -> Result<Option<SecretKey32>, String> {
+        if let Some(ref path) = self.key_file {
+            return read_key_file(path, self.allow_insecure_key_file).map(Some);
+        }
+        if self.key_stdin {
+            let mut line = Zeroizing::new(String::new());
+            io::stdin()
+                .take(256)
+                .read_to_string(&mut line)
+                .map_err(|e| format!("read key from stdin failed: {e}"))?;
+            return SecretKey32::from_hex(line.trim())
+                .map(Some)
+                .map_err(|_| "invalid stdin key: expected 64 hex chars (32 bytes)".into());
+        }
+        if let Some(ref raw) = self.key {
+            let zeroed = Zeroizing::new(raw.clone());
+            return SecretKey32::from_hex(zeroed.trim())
+                .map(Some)
+                .map_err(|_| "invalid key: expected 64 hex chars (32 bytes)".into());
+        }
+        // Fallback to VIBESLAYER_KEY env ONLY when no explicit CLI key flag was passed (Loop 3 LOW-8)
+        if let Ok(env_val) = std::env::var("VIBESLAYER_KEY") {
+            let zeroed = Zeroizing::new(env_val);
+            if !zeroed.trim().is_empty() {
+                return SecretKey32::from_hex(zeroed.trim())
+                    .map(Some)
+                    .map_err(|_| "invalid VIBESLAYER_KEY env: expected 64 hex chars (32 bytes)".into());
+            }
+        }
+        Ok(None)
     }
 }
 
-fn req_arg(args: &[String], flag: &str) -> Result<String, String> {
-    arg_val(args, flag).ok_or_else(|| format!("Missing required argument {flag}"))
+fn read_key_file(path: &Path, allow_insecure: bool) -> Result<SecretKey32, String> {
+    // Open once and validate permissions on the open fd + bounded 256-byte read (zero TOCTOU/OOM — Loop 3 LOW-9)
+    let file = File::open(path).map_err(|e| format!("open key file failed: {e}"))?;
+    #[cfg(unix)]
+    if !allow_insecure {
+        let meta = file
+            .metadata()
+            .map_err(|e| format!("fstat key file failed: {e}"))?;
+        let mode = meta.permissions().mode() & 0o777;
+        if (mode & 0o077) != 0 {
+            return Err(format!(
+                "refusing insecure key file {} (mode {:04o}; run `chmod 600` or pass --allow-insecure-key-file)",
+                path.display(),
+                mode
+            ));
+        }
+    }
+    #[cfg(not(unix))]
+    let _ = allow_insecure;
+
+    let mut raw = Zeroizing::new(String::new());
+    file.take(256)
+        .read_to_string(&mut raw)
+        .map_err(|e| format!("read key file failed: {e}"))?;
+    SecretKey32::from_hex(raw.trim())
+        .map_err(|_| "invalid key file contents: expected 64 hex chars (32 bytes)".into())
 }
 
-fn parse_key32(hex: &str) -> Result<[u8; 32], String> {
-    let mut v = hex_decode(hex).map_err(|e| format!("Invalid --key hex: {e}"))?;
-    if v.len() != 32 {
-        secure_zero(&mut v);
-        return Err("--key must be 32 bytes (64 hex chars)".to_string());
+fn write_key_file_0600(path: &Path, key: &SecretKey32) -> Result<(), String> {
+    let hex_str = Zeroizing::new(format!("{}\n", hex::encode(key.as_bytes())));
+    let mut opts = OpenOptions::new();
+    opts.write(true).create_new(true);
+    #[cfg(unix)]
+    opts.mode(0o600);
+    let mut f = opts
+        .open(path)
+        .map_err(|e| format!("create key file {} failed: {e}", path.display()))?;
+    f.write_all(hex_str.as_bytes())
+        .map_err(|e| format!("write key file failed: {e}"))?;
+    f.sync_all()
+        .map_err(|e| format!("sync key file failed: {e}"))?;
+    Ok(())
+}
+
+#[derive(Copy, Clone, ValueEnum)]
+enum CipherArg {
+    AesGcm,
+    Chacha20,
+}
+
+impl From<CipherArg> for AeadAlg {
+    fn from(c: CipherArg) -> Self {
+        match c {
+            CipherArg::AesGcm => AeadAlg::Aes256Gcm,
+            CipherArg::Chacha20 => AeadAlg::ChaCha20Poly1305,
+        }
     }
-    let mut out = [0u8; 32];
-    out.copy_from_slice(&v);
-    secure_zero(&mut v);
+}
+
+#[derive(Copy, Clone, ValueEnum)]
+enum GuardModeArg {
+    Off,
+    Observe,
+}
+
+#[derive(Subcommand)]
+enum Commands {
+    /// Print version metadata as JSON
+    Version,
+
+    /// Run built-in cryptographic & watermark self-verification demo
+    Demo,
+
+    /// Serve a single .glb model or a directory of .glb models via zero-geometry pixel streaming
+    #[command(name = "serve-3d", alias = "serve3d")]
+    Serve3d {
+        /// Path to a .glb file or directory containing .glb models
+        path: PathBuf,
+        /// Listen address (e.g. 127.0.0.1:8090)
+        #[arg(long, alias = "addr", default_value = "127.0.0.1:8090")]
+        bind: SocketAddr,
+        /// Watermark master key (generated ephemerally if omitted)
+        #[command(flatten)]
+        key_args: KeyArgs,
+        /// Write newly generated watermark key to a 0600 file
+        #[arg(long)]
+        key_out: Option<PathBuf>,
+        /// Separate HMAC signing key file to require scoped bearer grants (`stream:3d` / `forensics:trace`)
+        #[arg(long)]
+        auth_key_file: Option<PathBuf>,
+        /// Allow unauthenticated `/v1/forensics/trace` calls (local dev/testing ONLY)
+        #[arg(long, default_value_t = false)]
+        allow_unauthenticated_trace: bool,
+        /// Allowed CORS origins (repeatable, e.g. --allow-origin https://shop.example.com)
+        #[arg(long)]
+        allow_origin: Vec<String>,
+        /// Explicit dev opt-in for wildcard CORS
+        #[arg(long, default_value_t = false)]
+        allow_any_origin: bool,
+        /// CSP frame-ancestors policy (e.g. "'self' https://shop.example.com")
+        #[arg(long, default_value = "'self'")]
+        frame_ancestors: String,
+        /// Maximum fraction of 192 spherical view bins per session/subject (anti-3DGS/VGGT)
+        #[arg(long, default_value_t = 0.35)]
+        max_sphere_coverage: f32,
+        /// Disable smooth harmonic anti-3DGS intrinsics perturbation
+        #[arg(long, default_value_t = false)]
+        disable_perturbation: bool,
+        /// Trusted reverse-proxy CIDR ranges (repeatable, e.g. --trust-proxy 10.0.0.0/8)
+        #[arg(long)]
+        trust_proxy: Vec<IpNet>,
+        /// JPEG frame quality (60..95)
+        #[arg(long, default_value_t = 84)]
+        jpeg_quality: u8,
+    },
+
+    /// Blindly extract and verify the 64-bit forensic buyer_id from a leaked screenshot (survives crop, scale, JPEG)
+    #[command(name = "trace-3d", alias = "trace3d")]
+    Trace3d {
+        /// Path to leaked PNG/JPEG/WebP screenshot
+        #[arg(long = "image", short = 'i', value_name = "IMAGE", conflicts_with = "image_pos")]
+        image_flag: Option<PathBuf>,
+        /// Positional image path (if --image not passed)
+        image_pos: Option<PathBuf>,
+        #[command(flatten)]
+        key_args: KeyArgs,
+    },
+
+    /// Streaming VSPK3 v2 / legacy v1 authenticated encryption vault
+    Vault {
+        #[command(subcommand)]
+        action: VaultCommands,
+    },
+
+    /// Bundle a static web / SPA directory into an authenticated `.vsweb` v2 archive
+    Website {
+        /// Input directory containing HTML/JS/CSS assets
+        dir: PathBuf,
+        /// Output `.vsweb` bundle path
+        #[arg(short, long)]
+        out: PathBuf,
+        #[command(flatten)]
+        key_args: KeyArgs,
+        /// Write newly generated bundle master key to a 0600 file
+        #[arg(long)]
+        key_out: Option<PathBuf>,
+        /// Site display identifier (also bound as token audience `aud`)
+        #[arg(long, default_value = "vibe-slayer-app")]
+        site_id: String,
+    },
+
+    /// Serve an authenticated `.vsweb` v2 bundle over async HTTP/1.1+HTTP/2 with ephemeral lease handshakes
+    Serve {
+        /// Path to `.vsweb` v2 bundle
+        bundle: PathBuf,
+        /// Listen address
+        #[arg(long, alias = "addr", default_value = "127.0.0.1:8080")]
+        bind: SocketAddr,
+        #[command(flatten)]
+        key_args: KeyArgs,
+        /// Signing key file required for `web:lease` bearer grants on `/__vibeslayer/lease`
+        #[arg(long)]
+        auth_key_file: Option<PathBuf>,
+        /// Explicit opt-in to serve `/__vibeslayer/lease` anonymously for public sites
+        #[arg(long, default_value_t = false)]
+        allow_anonymous_public_site: bool,
+        /// Disable SPA deep-link fallback to bootstrap shell (return 404 on unknown routes)
+        #[arg(long, default_value_t = false)]
+        no_spa_fallback: bool,
+        /// Non-blocking guard mode (off | observe)
+        #[arg(long, value_enum, default_value_t = GuardModeArg::Observe)]
+        mode: GuardModeArg,
+    },
+
+    /// Mint or verify IP-agnostic HMAC-SHA256 session grant tokens
+    Token {
+        #[command(subcommand)]
+        action: TokenCommands,
+    },
+
+    /// Scan a file or directory for accidental hardcoded secrets and private keys
+    Scan {
+        /// File or directory to audit
+        path: PathBuf,
+    },
+
+    /// Preview the exact CLI command for a plain-English request without executing it
+    Explain {
+        #[arg(required = true)]
+        sentence: Vec<String>,
+        #[arg(long, default_value_t = false)]
+        json: bool,
+    },
+
+    /// Translate plain English into a Vibe-Slayer command (pass --dry-run to preview only)
+    Ask {
+        #[arg(required = true)]
+        sentence: Vec<String>,
+        #[arg(long, default_value_t = false)]
+        dry_run: bool,
+        #[arg(long, default_value_t = false)]
+        json: bool,
+    },
+
+    /// [Compat] Seal a file into legacy VSPK2 container (audited ring ChaCha20-Poly1305)
+    Pack {
+        #[command(flatten)]
+        key_args: KeyArgs,
+        #[arg(long, default_value = "default")]
+        domain: String,
+        #[arg(long)]
+        asset_id: String,
+        #[arg(long, default_value = "")]
+        context: String,
+        #[arg(long = "in")]
+        in_path: PathBuf,
+        #[arg(long = "out")]
+        out_path: PathBuf,
+    },
+
+    /// [Compat] Unseal a legacy VSPK2 container
+    Unseal {
+        #[command(flatten)]
+        key_args: KeyArgs,
+        #[arg(long, default_value = "default")]
+        domain: String,
+        #[arg(long)]
+        asset_id: Option<String>,
+        #[arg(long, default_value = "")]
+        context: String,
+        #[arg(long = "in")]
+        in_path: PathBuf,
+        #[arg(long = "out")]
+        out_path: PathBuf,
+    },
+
+    /// [Compat] Seal a file into VSPK3 (defaults to v1 for C/Go/Py interop; pass --v2 for 64-bit STREAM)
+    PackV3 {
+        #[command(flatten)]
+        key_args: KeyArgs,
+        #[arg(long, default_value = "default")]
+        domain: String,
+        #[arg(long)]
+        asset_id: String,
+        #[arg(long, default_value = "")]
+        context: String,
+        #[arg(long = "in")]
+        in_path: PathBuf,
+        #[arg(long = "out")]
+        out_path: PathBuf,
+        #[arg(long, default_value_t = false)]
+        v2: bool,
+    },
+
+    /// [Compat] Unseal VSPK3 v1 or VSPK3 v2 STREAM (auto-detected)
+    UnsealV3 {
+        #[command(flatten)]
+        key_args: KeyArgs,
+        #[arg(long, default_value = "default")]
+        domain: String,
+        #[arg(long)]
+        asset_id: String,
+        #[arg(long, default_value = "")]
+        context: String,
+        #[arg(long = "in")]
+        in_path: PathBuf,
+        #[arg(long = "out")]
+        out_path: PathBuf,
+    },
+}
+
+#[derive(Subcommand)]
+enum VaultCommands {
+    /// Seal any file (multi-GB safe, constant ~134 KiB RAM) into VSPK3 v2 STREAM (or legacy --v1)
+    Seal {
+        #[arg(conflicts_with = "in_path")]
+        in_pos: Option<PathBuf>,
+        #[arg(long = "in", conflicts_with = "in_pos")]
+        in_path: Option<PathBuf>,
+        #[arg(short = 'o', long = "out")]
+        out_path: PathBuf,
+        #[command(flatten)]
+        key_args: KeyArgs,
+        #[arg(long, default_value = "default")]
+        domain: String,
+        #[arg(long, default_value = "asset")]
+        asset_id: String,
+        #[arg(long, default_value = "prod")]
+        context: String,
+        #[arg(long, value_enum, default_value_t = CipherArg::AesGcm)]
+        cipher: CipherArg,
+        #[arg(long, default_value_t = false)]
+        v1: bool,
+    },
+    /// Unseal a VSPK3 v2 STREAM or legacy VSPK3 v1 file (auto-detected, atomic 0600 temp staging)
+    Unseal {
+        #[arg(conflicts_with = "in_path")]
+        in_pos: Option<PathBuf>,
+        #[arg(long = "in", conflicts_with = "in_pos")]
+        in_path: Option<PathBuf>,
+        #[arg(short = 'o', long = "out")]
+        out_path: PathBuf,
+        #[command(flatten)]
+        key_args: KeyArgs,
+        #[arg(long, default_value = "default")]
+        domain: String,
+        #[arg(long, default_value = "asset")]
+        asset_id: String,
+        #[arg(long, default_value = "prod")]
+        context: String,
+        #[arg(long, value_enum)]
+        cipher: Option<CipherArg>,
+    },
+    /// Verify header & terminal chunk commitment and inspect layout of a VSPK3 v2 STREAM vault
+    Inspect {
+        #[arg(conflicts_with = "in_path")]
+        in_pos: Option<PathBuf>,
+        #[arg(long = "in", conflicts_with = "in_pos")]
+        in_path: Option<PathBuf>,
+        #[command(flatten)]
+        key_args: KeyArgs,
+        #[arg(long, default_value = "default")]
+        domain: String,
+        #[arg(long, default_value = "asset")]
+        asset_id: String,
+        #[arg(long, default_value = "prod")]
+        context: String,
+        #[arg(long, value_enum)]
+        cipher: Option<CipherArg>,
+    },
+}
+
+#[derive(Subcommand)]
+enum TokenCommands {
+    /// Mint a signed origin/asset/scope-bound session grant
+    Mint {
+        #[command(flatten)]
+        key_args: KeyArgs,
+        #[arg(long)]
+        subject: String,
+        #[arg(long, default_value = "vibe-slayer-app")]
+        origin: String,
+        #[arg(long, default_value = "")]
+        asset_id: String,
+        /// Repeatable scopes (defaults to stream:3d; pass e.g. --scope forensics:trace or --scope web:lease)
+        #[arg(long = "scope")]
+        scopes: Vec<String>,
+        #[arg(long, default_value_t = 900)]
+        ttl: u64,
+    },
+    /// Verify a signed session grant
+    Verify {
+        #[command(flatten)]
+        key_args: KeyArgs,
+        #[arg(long)]
+        token: String,
+        #[arg(long)]
+        origin: Option<String>,
+        #[arg(long)]
+        asset_id: Option<String>,
+    },
+}
+
+fn guess_content_type(path: &Path) -> &'static str {
+    match path
+        .extension()
+        .and_then(|e| e.to_str())
+        .map(|s| s.to_ascii_lowercase())
+        .as_deref()
+    {
+        Some("html" | "htm") => "text/html; charset=utf-8",
+        Some("js" | "mjs") => "application/javascript; charset=utf-8",
+        Some("css") => "text/css; charset=utf-8",
+        Some("json") => "application/json; charset=utf-8",
+        Some("svg") => "image/svg+xml",
+        Some("png") => "image/png",
+        Some("jpg" | "jpeg") => "image/jpeg",
+        Some("webp") => "image/webp",
+        Some("wasm") => "application/wasm",
+        _ => "application/octet-stream",
+    }
+}
+
+fn collect_web_files(root: &Path) -> Result<Vec<(String, String, Vec<u8>)>, String> {
+    let root_meta = fs::symlink_metadata(root).map_err(|e| format!("stat dir failed: {e}"))?;
+    if !root_meta.is_dir() {
+        return Err(format!("not a directory: {}", root.display()));
+    }
+    let mut out = Vec::new();
+    let mut total_bytes: u64 = 0;
+    let mut stack = vec![root.to_path_buf()];
+    while let Some(dir) = stack.pop() {
+        let rd = fs::read_dir(&dir).map_err(|e| format!("read_dir failed: {e}"))?;
+        for entry in rd.flatten() {
+            // MED-15 fix: never follow symlinks (prevents cycles & root-escape reads like /etc/passwd)
+            let Ok(ft) = entry.file_type() else {
+                continue;
+            };
+            if ft.is_symlink() {
+                continue;
+            }
+            let p = entry.path();
+            if ft.is_dir() {
+                if let Some(name) = p.file_name().and_then(|n| n.to_str()) {
+                    if !name.starts_with('.') && name != "node_modules" {
+                        stack.push(p);
+                    }
+                }
+            } else if ft.is_file() {
+                if out.len() >= 4096 {
+                    return Err("web bundle exceeds 4096 file-count cap".into());
+                }
+                let file =
+                    File::open(&p).map_err(|e| format!("open {} failed: {e}", p.display()))?;
+                let meta = file
+                    .metadata()
+                    .map_err(|e| format!("fstat {} failed: {e}", p.display()))?;
+                if !meta.is_file() {
+                    continue;
+                }
+                if meta.len() > MAX_WEB_FILE_BYTES {
+                    return Err(format!(
+                        "file {} exceeds 16 MiB web bundle per-file cap",
+                        p.display()
+                    ));
+                }
+                let mut bytes = Vec::with_capacity((meta.len() as usize).min(1024 * 1024));
+                file.take(MAX_WEB_FILE_BYTES + 1)
+                    .read_to_end(&mut bytes)
+                    .map_err(|e| format!("read {} failed: {e}", p.display()))?;
+                if (bytes.len() as u64) > MAX_WEB_FILE_BYTES {
+                    return Err(format!(
+                        "file {} exceeds 16 MiB web bundle per-file cap",
+                        p.display()
+                    ));
+                }
+                total_bytes = total_bytes.saturating_add(bytes.len() as u64);
+                if total_bytes > MAX_WEB_BUNDLE_BYTES {
+                    return Err("total web bundle exceeds 128 MiB cap".into());
+                }
+                let rel = p
+                    .strip_prefix(root)
+                    .map_err(|e| format!("strip_prefix failed: {e}"))?
+                    .to_string_lossy()
+                    .replace('\\', "/");
+                out.push((rel, guess_content_type(&p).to_string(), bytes));
+            }
+        }
+    }
+    out.sort_by(|a, b| a.0.cmp(&b.0));
     Ok(out)
 }
 
-fn default_suite_native_path(rel: &str) -> Result<PathBuf, String> {
-    if let Some(ws) = auto_cli::detect_workspace_root() {
-        let candidate = ws.join(rel);
-        if candidate.exists() {
-            return Ok(candidate);
+/// RAII guard that guarantees sibling temporary files are deleted on ANY error path (Loop 3 MED-12).
+struct TempFileGuard {
+    path: Option<PathBuf>,
+}
+
+impl TempFileGuard {
+    fn new(path: PathBuf) -> Self {
+        Self { path: Some(path) }
+    }
+
+    fn persist(mut self, target: &Path) -> Result<(), String> {
+        if let Some(ref p) = self.path {
+            fs::rename(p, target).map_err(|e| format!("atomic rename failed: {e}"))?;
+            self.path = None;
+        }
+        Ok(())
+    }
+}
+
+impl Drop for TempFileGuard {
+    fn drop(&mut self) {
+        if let Some(ref p) = self.path {
+            let _ = fs::remove_file(p);
         }
     }
-    let exe_dir = env::current_exe().map_err(|e| format!("current_exe failed: {e}"))?;
-    let mut cur = exe_dir.parent();
-    while let Some(dir) = cur {
-        let candidate = dir.join(rel);
-        if candidate.exists() {
-            return Ok(candidate);
-        }
-        cur = dir.parent();
-    }
-    let root = exe_dir
+}
+
+fn create_unique_sibling_temp(out_path: &Path) -> Result<(TempFileGuard, File), String> {
+    let parent = out_path
         .parent()
-        .and_then(|p| p.parent())
-        .and_then(|p| p.parent())
-        .ok_or_else(|| "Unable to locate workspace root from executable path".to_string())?;
-    Ok(root.join(rel))
+        .filter(|p| !p.as_os_str().is_empty())
+        .unwrap_or_else(|| Path::new("."));
+    let stem = out_path
+        .file_name()
+        .and_then(|s| s.to_str())
+        .unwrap_or("out");
+    let pid = std::process::id();
+    for _ in 0..8 {
+        let rand8 = random_bytes::<8>().map_err(|e| format!("rng failed: {e}"))?;
+        let candidate = parent.join(format!(".{stem}.{pid}.{}.vstmp", hex::encode(rand8)));
+        let mut opts = OpenOptions::new();
+        opts.write(true).create_new(true);
+        #[cfg(unix)]
+        opts.mode(0o600);
+        match opts.open(&candidate) {
+            Ok(f) => return Ok((TempFileGuard::new(candidate), f)),
+            Err(e) if e.kind() == io::ErrorKind::AlreadyExists => continue,
+            Err(e) => return Err(format!("create temp file failed: {e}")),
+        }
+    }
+    Err("unable to allocate unique temp file".into())
 }
 
-fn to_i16_le(bytes: &[u8]) -> Result<Vec<i16>, String> {
-    if bytes.len() % 2 != 0 {
-        return Err("Coordinate stream byte length must be a multiple of 2".to_string());
+#[allow(clippy::too_many_arguments)]
+fn vault_seal_cmd(
+    in_path: &Path,
+    out_path: &Path,
+    key: &SecretKey32,
+    domain: &str,
+    asset_id: &str,
+    context: &str,
+    alg: AeadAlg,
+    legacy_v1: bool,
+) -> Result<serde_json::Value, String> {
+    if legacy_v1 {
+        let plain = fs::read(in_path).map_err(|e| format!("read input failed: {e}"))?;
+        let sealed =
+            seal_vspk3_v1(key, domain, asset_id, context, &plain).map_err(|e| e.to_string())?;
+        fs::write(out_path, &sealed).map_err(|e| format!("write output failed: {e}"))?;
+        return Ok(serde_json::json!({
+            "ok": true,
+            "format": "vspk3-v1",
+            "inputBytes": plain.len(),
+            "outputBytes": sealed.len(),
+            "sha256": hex::encode(sha256(&sealed)),
+        }));
     }
-    Ok(bytes
-        .chunks_exact(2)
-        .map(|c| i16::from_le_bytes([c[0], c[1]]))
-        .collect())
+    let input = File::open(in_path).map_err(|e| format!("open input failed: {e}"))?;
+    let (tmp_guard, output) = create_unique_sibling_temp(out_path)?;
+    let mut writer = BufWriter::new(output);
+    let written = seal_vspk3_v2_stream(
+        key,
+        alg,
+        domain,
+        asset_id,
+        context,
+        BufReader::new(input),
+        &mut writer,
+    )
+    .map_err(|e| e.to_string())?;
+    writer.flush().map_err(|e| format!("flush failed: {e}"))?;
+    let inner = writer
+        .into_inner()
+        .map_err(|e| format!("flush inner failed: {e}"))?;
+    inner.sync_all().map_err(|e| format!("sync failed: {e}"))?;
+    drop(inner);
+    tmp_guard.persist(out_path)?;
+    Ok(serde_json::json!({
+        "ok": true,
+        "format": "vspk3-v2-stream",
+        "cipher": format!("{alg:?}"),
+        "chunkSize": VSPK3_V2_CHUNK_PLAIN,
+        "outputBytes": written,
+    }))
 }
 
-fn run(args: &[String]) -> Result<i32, (i32, String)> {
-    let cmd = args.get(1).map(String::as_str).unwrap_or("help");
+fn try_unseal_v2_to_temp(
+    in_path: &Path,
+    out_path: &Path,
+    key: &SecretKey32,
+    alg: AeadAlg,
+    domain: &str,
+    asset_id: &str,
+    context: &str,
+) -> Result<u64, String> {
+    // CRIT-11 fix: verify 64-byte header commitment BEFORE creating any temp file!
+    let mut prefix = [0u8; VSPK3_V2_PREFIX_LEN];
+    {
+        let mut f = File::open(in_path).map_err(|e| format!("open input failed: {e}"))?;
+        f.read_exact(&mut prefix)
+            .map_err(|_| "vault authentication failed".to_string())?;
+    }
+    verify_vspk3_v2_header_commitment(key, alg, domain, asset_id, context, &prefix)
+        .map_err(|e| e.to_string())?;
 
-    if matches!(cmd, "ask" | "do" | "nl" | "explain") {
-        let force_dry = cmd == "explain";
-        let (sentence, dry_run, as_json) =
-            vibeslayer_core::nl_cli::parse_nl_cli_args(&args[2..], force_dry);
-        let plan = vibeslayer_core::nl_cli::compile_natural_language(&sentence)
-            .map_err(|e| (1, e))?;
-        if dry_run {
-            if as_json {
-                println!("{}", vibeslayer_core::nl_cli::format_plan_json(&plan, true));
-            } else {
-                vibeslayer_core::nl_cli::print_plan_human(&plan, true);
-            }
-            return Ok(0);
+    let input = File::open(in_path).map_err(|e| format!("open input failed: {e}"))?;
+    let (tmp_guard, output) = create_unique_sibling_temp(out_path)?;
+    let mut writer = BufWriter::new(output);
+    let plain_bytes = unseal_vspk3_v2_stream(
+        key,
+        alg,
+        domain,
+        asset_id,
+        context,
+        BufReader::new(input),
+        &mut writer,
+    )
+    .map_err(|e| e.to_string())?;
+    writer.flush().map_err(|e| format!("flush failed: {e}"))?;
+    let inner = writer
+        .into_inner()
+        .map_err(|e| format!("flush inner failed: {e}"))?;
+    inner.sync_all().map_err(|e| format!("sync failed: {e}"))?;
+    drop(inner);
+    tmp_guard.persist(out_path)?;
+    Ok(plain_bytes)
+}
+
+fn vault_unseal_cmd(
+    in_path: &Path,
+    out_path: &Path,
+    key: &SecretKey32,
+    domain: &str,
+    asset_id: &str,
+    context: &str,
+    cipher_hint: Option<AeadAlg>,
+) -> Result<serde_json::Value, String> {
+    let candidates: Vec<AeadAlg> = match cipher_hint {
+        Some(a) => vec![a],
+        None => vec![AeadAlg::Aes256Gcm, AeadAlg::ChaCha20Poly1305],
+    };
+
+    for alg in candidates {
+        if let Ok(plain_bytes) =
+            try_unseal_v2_to_temp(in_path, out_path, key, alg, domain, asset_id, context)
+        {
+            return Ok(serde_json::json!({
+                "ok": true,
+                "format": "vspk3-v2-stream",
+                "cipher": format!("{alg:?}"),
+                "plainBytes": plain_bytes,
+            }));
         }
-        if !as_json {
-            vibeslayer_core::nl_cli::print_plan_human(&plan, false);
-        }
-        let mut synthetic = Vec::with_capacity(plan.argv.len() + 2);
-        synthetic.push(
-            args.first()
-                .cloned()
-                .unwrap_or_else(|| "vibe-slayer".to_string()),
-        );
-        synthetic.extend(plan.argv.iter().cloned());
-        if as_json && !synthetic.iter().any(|x| x == "--json") {
-            synthetic.push("--json".to_string());
-        }
-        return run(&synthetic);
     }
 
-    if matches!(
-        cmd,
-        "protect"
-            | "auto"
-            | "scan"
-            | "test"
-            | "verify-auto"
-            | "run"
-            | "watermark"
-            | "trace"
-            | "demo"
-            | "website"
-            | "serve"
-            | "help"
-            | "--help"
-            | "-h"
-    ) {
-        return auto_cli::run_beginner_subcommand(cmd, &args[2..]);
-    }
-    if cmd == "unseal" && !args.iter().any(|a| a == "--key" || a == "--in") {
-        return auto_cli::run_beginner_subcommand("unseal", &args[2..]);
-    }
-
-    match cmd {
-        "version" => {
-            println!("{{\"version\":\"{}\"}}", VERSION);
-            Ok(0)
-        }
-        "pack" => {
-            let key_hex = req_arg(args, "--key").map_err(|e| (1, e))?;
-            let mut key = parse_key32(&key_hex).map_err(|e| (1, e))?;
-            let domain = arg_val(args, "--domain").unwrap_or_else(|| "default".to_string());
-            let asset_id = req_arg(args, "--asset-id").map_err(|e| (1, e))?;
-            let context = arg_val(args, "--context").unwrap_or_default();
-            let in_path = req_arg(args, "--in").map_err(|e| (1, e))?;
-            let out_path = req_arg(args, "--out").map_err(|e| (1, e))?;
-
-            let mut plain = fs::read(&in_path).map_err(|e| {
-                secure_zero(&mut key);
-                (1, format!("Failed reading --in: {e}"))
-            })?;
-            let vspk = pack_vspk2(&key, &domain, &asset_id, &context, &plain);
-            secure_zero(&mut key);
-            secure_zero(&mut plain);
-            let vspk = vspk.map_err(|e| (1, format!("pack failed: {e}")))?;
-            fs::write(&out_path, &vspk).map_err(|e| (1, format!("Failed writing --out: {e}")))?;
-            println!(
-                "{{\"ok\":true,\"inputBytes\":{},\"outputBytes\":{},\"sha256\":\"{}\"}}",
-                plain.len(),
-                vspk.len(),
-                hex_encode(&sha256(&vspk))
-            );
-            Ok(0)
-        }
-        "unseal" => {
-            let key_hex = req_arg(args, "--key").map_err(|e| (1, e))?;
-            let mut key = parse_key32(&key_hex).map_err(|e| (1, e))?;
-            let domain = arg_val(args, "--domain").unwrap_or_else(|| "default".to_string());
-            let asset_id = arg_val(args, "--asset-id");
-            let context = arg_val(args, "--context").unwrap_or_default();
-            let in_path = req_arg(args, "--in").map_err(|e| (1, e))?;
-            let out_path = req_arg(args, "--out").map_err(|e| (1, e))?;
-
-            let vspk = fs::read(&in_path).map_err(|e| {
-                secure_zero(&mut key);
-                (1, format!("Failed reading --in: {e}"))
-            })?;
-            let res = match asset_id.as_deref() {
-                Some(aid) => unseal_vspk2_for_asset(&key, &domain, aid, &context, &vspk),
-                None => unseal_vspk2(&key, &domain, &context, &vspk),
-            };
-            secure_zero(&mut key);
-            let mut plain = res.map_err(|e| (3, format!("unseal failed: {e}")))?;
-            let plain_len = plain.len();
-            let wr = fs::write(&out_path, &plain);
-            secure_zero(&mut plain);
-            wr.map_err(|e| (1, format!("Failed writing --out: {e}")))?;
-            println!("{{\"ok\":true,\"plainBytes\":{}}}", plain_len);
-            Ok(0)
-        }
-        "pack-v3" => {
-            let key_hex = req_arg(args, "--key").map_err(|e| (1, e))?;
-            let mut key = parse_key32(&key_hex).map_err(|e| (1, e))?;
-            let domain = arg_val(args, "--domain").unwrap_or_else(|| "default".to_string());
-            let asset_id = req_arg(args, "--asset-id").map_err(|e| (1, e))?;
-            let context = arg_val(args, "--context").unwrap_or_default();
-            let in_path = req_arg(args, "--in").map_err(|e| (1, e))?;
-            let out_path = req_arg(args, "--out").map_err(|e| (1, e))?;
-
-            let mut plain = fs::read(&in_path).map_err(|e| {
-                secure_zero(&mut key);
-                (1, format!("Failed reading --in: {e}"))
-            })?;
-            let plain_len = plain.len();
-            let res = pack_vspk3(&key, &domain, &asset_id, &context, &plain);
-            secure_zero(&mut key);
-            secure_zero(&mut plain);
-            let vspk = res.map_err(|e| (1, format!("pack-v3 failed: {e}")))?;
-            fs::write(&out_path, &vspk).map_err(|e| (1, format!("Failed writing --out: {e}")))?;
-            println!(
-                "{{\"ok\":true,\"inputBytes\":{},\"outputBytes\":{},\"sha256\":\"{}\"}}",
-                plain_len,
-                vspk.len(),
-                hex_encode(&sha256(&vspk))
-            );
-            Ok(0)
-        }
-        "unseal-v3" => {
-            let key_hex = req_arg(args, "--key").map_err(|e| (1, e))?;
-            let mut key = parse_key32(&key_hex).map_err(|e| (1, e))?;
-            let domain = arg_val(args, "--domain").unwrap_or_else(|| "default".to_string());
-            let asset_id = req_arg(args, "--asset-id").map_err(|e| (1, e))?;
-            let context = arg_val(args, "--context").unwrap_or_default();
-            let in_path = req_arg(args, "--in").map_err(|e| (1, e))?;
-            let out_path = req_arg(args, "--out").map_err(|e| (1, e))?;
-
-            let vspk = fs::read(&in_path).map_err(|e| {
-                secure_zero(&mut key);
-                (1, format!("Failed reading --in: {e}"))
-            })?;
-            let res = unseal_vspk3_owned(&key, &domain, &asset_id, &context, vspk);
-            secure_zero(&mut key);
-            let mut plain = res.map_err(|e| (3, format!("unseal-v3 failed: {e}")))?;
-            let plain_len = plain.len();
-            let wr = fs::write(&out_path, &plain);
-            secure_zero(&mut plain);
-            wr.map_err(|e| (1, format!("Failed writing --out: {e}")))?;
-            println!("{{\"ok\":true,\"plainBytes\":{}}}", plain_len);
-            Ok(0)
-        }
-        "cook-glb" => {
-            let key_hex = req_arg(args, "--key").map_err(|e| (1, e))?;
-            let mut key = parse_key32(&key_hex).map_err(|e| (1, e))?;
-            let asset_id = req_arg(args, "--asset-id").map_err(|e| (1, e))?;
-            let context = arg_val(args, "--context").unwrap_or_default();
-            let in_path = req_arg(args, "--in").map_err(|e| (1, e))?;
-            let out_path = req_arg(args, "--out").map_err(|e| (1, e))?;
-            let ref_path = req_arg(args, "--owner-ref").map_err(|e| (1, e))?;
-
-            let glb = fs::read(&in_path).map_err(|e| {
-                secure_zero(&mut key);
-                (1, format!("Failed reading GLB: {e}"))
-            })?;
-            let res = cook_glb_vspk2(&key, &asset_id, &context, &glb);
-            secure_zero(&mut key);
-            let (sealed, owner_ref) = res.map_err(|e| (1, format!("cook-glb failed: {e}")))?;
-            fs::write(&out_path, &sealed).map_err(|e| (1, format!("Failed writing sealed GLB: {e}")))?;
-            let mut ref_bytes = Vec::with_capacity(owner_ref.len() * 2);
-            for v in &owner_ref {
-                ref_bytes.extend_from_slice(&v.to_le_bytes());
+    // CRIT-10 fix: guard legacy v1 fallback with size bounds + O(1) prefix92 CMT-4 check before fs::read!
+    if cipher_hint.is_none() {
+        let len = fs::metadata(in_path)
+            .map_err(|e| format!("stat input failed: {e}"))?
+            .len();
+        let min_v1 = (VSPK3_V1_PREFIX_LEN + VSPK3_V1_PAD_QUANTUM) as u64;
+        if len >= min_v1
+            && len <= MAX_V1_FALLBACK_BYTES
+            && (len - VSPK3_V1_PREFIX_LEN as u64).is_multiple_of(VSPK3_V1_PAD_QUANTUM as u64)
+        {
+            let mut prefix92 = [0u8; VSPK3_V1_PREFIX_LEN];
+            let mut f = File::open(in_path).map_err(|e| format!("open input failed: {e}"))?;
+            if f.read_exact(&mut prefix92).is_ok()
+                && verify_vspk3_v1_header_commitment(key, domain, asset_id, context, &prefix92)
+                    .is_ok()
+            {
+                let blob = fs::read(in_path).map_err(|e| format!("read input failed: {e}"))?;
+                if let Ok(plain) = unseal_vspk3_v1(key, domain, asset_id, context, &blob) {
+                    let (tmp_guard, mut out_f) = create_unique_sibling_temp(out_path)?;
+                    out_f
+                        .write_all(&plain)
+                        .map_err(|e| format!("write output failed: {e}"))?;
+                    out_f
+                        .sync_all()
+                        .map_err(|e| format!("sync output failed: {e}"))?;
+                    drop(out_f);
+                    tmp_guard.persist(out_path)?;
+                    return Ok(serde_json::json!({
+                        "ok": true,
+                        "format": "vspk3-v1",
+                        "plainBytes": plain.len(),
+                    }));
+                }
             }
-            fs::write(&ref_path, &ref_bytes)
-                .map_err(|e| (1, format!("Failed writing --owner-ref: {e}")))?;
-            println!(
-                "{{\"ok\":true,\"sealedBytes\":{},\"coords\":{}}}",
-                sealed.len(),
-                owner_ref.len()
-            );
-            Ok(0)
         }
-        "unseal-glb-lease" => {
-            let key_hex = req_arg(args, "--key").map_err(|e| (1, e))?;
-            let mut key = parse_key32(&key_hex).map_err(|e| (1, e))?;
-            let asset_id = req_arg(args, "--asset-id").map_err(|e| (1, e))?;
-            let context = arg_val(args, "--context").unwrap_or_default();
-            let lease_id = req_arg(args, "--lease-id").map_err(|e| (1, e))?;
-            let in_path = req_arg(args, "--in").map_err(|e| (1, e))?;
-            let out_pos = req_arg(args, "--out-positions").map_err(|e| (1, e))?;
+    }
 
-            let vspk = fs::read(&in_path).map_err(|e| {
-                secure_zero(&mut key);
-                (1, format!("Failed reading --in: {e}"))
-            })?;
-            let res = unseal_glb_for_lease(&key, &asset_id, &context, &lease_id, &vspk);
-            secure_zero(&mut key);
-            let positions = res.map_err(|e| (1, format!("unseal-glb failed: {e}")))?;
-            let mut out = Vec::with_capacity(positions.len() * 2);
-            for v in &positions {
-                out.extend_from_slice(&v.to_le_bytes());
-            }
-            fs::write(&out_pos, &out)
-                .map_err(|e| (1, format!("Failed writing --out-positions: {e}")))?;
-            println!("{{\"ok\":true,\"coords\":{}}}", positions.len());
-            Ok(0)
-        }
-        "trace-glb" => {
-            let key_hex = req_arg(args, "--key").map_err(|e| (1, e))?;
-            let mut key = parse_key32(&key_hex).map_err(|e| (1, e))?;
-            let asset_id = req_arg(args, "--asset-id").map_err(|e| (1, e))?;
-            let ref_path = req_arg(args, "--owner-ref").map_err(|e| (1, e))?;
-            let cap_path = req_arg(args, "--captured").map_err(|e| (1, e))?;
-            let cands_raw = req_arg(args, "--candidates").map_err(|e| (1, e))?;
+    Err("vault authentication failed".into())
+}
 
-            let ref_bytes = fs::read(&ref_path).map_err(|e| {
-                secure_zero(&mut key);
-                (1, format!("Failed reading --owner-ref: {e}"))
-            })?;
-            let cap_bytes = fs::read(&cap_path).map_err(|e| {
-                secure_zero(&mut key);
-                (1, format!("Failed reading --captured: {e}"))
-            })?;
-            let owner_ref = to_i16_le(&ref_bytes).map_err(|e| {
-                secure_zero(&mut key);
-                (1, e)
-            })?;
-            let captured = to_i16_le(&cap_bytes).map_err(|e| {
-                secure_zero(&mut key);
-                (1, e)
-            })?;
-            let candidates: Vec<String> = cands_raw.split(',').map(|s| s.to_string()).collect();
-            let res = trace_glb_watermark(&key, &asset_id, &owner_ref, &captured, &candidates);
-            secure_zero(&mut key);
-            let (matched, ratio) = res.ok_or_else(|| (1, "No matching candidate".to_string()))?;
+fn format_plan_human(plan: &NaturalPlan, dry_run: bool) -> String {
+    let mut s = String::new();
+    s.push_str(&format!(
+        "Intent : {} ({})\n",
+        plan.intent,
+        if dry_run { "preview only" } else { "executing" }
+    ));
+    s.push_str(&format!("Goal   : {}\n", plan.goal));
+    s.push_str(&format!("Command: {}\n", plan.display_command()));
+    for r in &plan.reasons {
+        s.push_str(&format!("  - {r}\n"));
+    }
+    if let Some(next) = &plan.next_command {
+        s.push_str(&format!("Next   : {next}\n"));
+    }
+    s
+}
+
+async fn run_async(cli: Cli) -> Result<(), (u8, String)> {
+    match cli.command {
+        Commands::Version => {
             println!(
-                "{{\"ok\":true,\"matchedLeaseId\":\"{}\",\"chipMatchRatio\":{:.6}}}",
-                matched, ratio
+                "{}",
+                serde_json::json!({
+                    "version": VERSION,
+                    "crates": ["vs-crypto", "vs-vault", "vs-watermark", "vs-3d", "vs-server", "vs-nl"],
+                    "unsafe_code": "forbid"
+                })
             );
-            Ok(0)
+            Ok(())
         }
-        "build-elf" => {
-            let key_hex = req_arg(args, "--key").map_err(|e| (1, e))?;
-            let mut key = parse_key32(&key_hex).map_err(|e| (1, e))?;
-            let asset_id = req_arg(args, "--asset-id").map_err(|e| (1, e))?;
-            let in_path = req_arg(args, "--in").map_err(|e| (1, e))?;
-            let out_path = PathBuf::from(req_arg(args, "--out").map_err(|e| (1, e))?);
-            let template_c = match arg_val(args, "--template") {
-                Some(p) => PathBuf::from(p),
-                None => default_suite_native_path("vibeslayer-suite/native_src/vs_native_template.c")
-                    .map_err(|e| {
-                        secure_zero(&mut key);
-                        (1, e)
-                    })?,
-            };
-            let mut plain = fs::read(&in_path).map_err(|e| {
-                secure_zero(&mut key);
-                (1, format!("Failed reading --in: {e}"))
-            })?;
-            let res = build_protected_elf(&key, &template_c, &asset_id, &plain, &out_path);
-            secure_zero(&mut key);
-            secure_zero(&mut plain);
-            let (lease_hex, rx_hex) = res.map_err(|e| (1, format!("build-elf failed: {e}")))?;
-            println!(
-                "{{\"ok\":true,\"leaseKeyHex\":\"{}\",\"rxSha256Hex\":\"{}\"}}",
-                lease_hex, rx_hex
-            );
-            Ok(0)
-        }
-        "build-elf-elite" => {
-            let key_hex = req_arg(args, "--key").map_err(|e| (1, e))?;
-            let mut key = parse_key32(&key_hex).map_err(|e| (1, e))?;
-            let asset_id = req_arg(args, "--asset-id").map_err(|e| (1, e))?;
-            let in_path = req_arg(args, "--in").map_err(|e| (1, e))?;
-            let out_path = PathBuf::from(req_arg(args, "--out").map_err(|e| (1, e))?);
-            let crypto_hdr = match arg_val(args, "--crypto-header") {
-                Some(p) => PathBuf::from(p),
-                None => default_suite_native_path("vibeslayer-suite/native_src/vs_crypto_core.h")
-                    .map_err(|e| {
-                        secure_zero(&mut key);
-                        (1, e)
-                    })?,
-            };
-            let mut plain = fs::read(&in_path).map_err(|e| {
-                secure_zero(&mut key);
-                (1, format!("Failed reading --in: {e}"))
-            })?;
-            let res = build_protected_elf_elite(&key, &crypto_hdr, &asset_id, &plain, &out_path);
-            secure_zero(&mut key);
-            secure_zero(&mut plain);
-            let (lease_hex, rx_hex) =
-                res.map_err(|e| (1, format!("build-elf-elite failed: {e}")))?;
-            println!(
-                "{{\"ok\":true,\"leaseKeyHex\":\"{}\",\"rxSha256Hex\":\"{}\"}}",
-                lease_hex, rx_hex
-            );
-            Ok(0)
-        }
-        "build-elf-freestanding" => {
-            let key_hex = req_arg(args, "--key").map_err(|e| (1, e))?;
-            let mut key = parse_key32(&key_hex).map_err(|e| (1, e))?;
-            let asset_id = req_arg(args, "--asset-id").map_err(|e| (1, e))?;
-            let in_path = req_arg(args, "--in").map_err(|e| (1, e))?;
-            let out_path = PathBuf::from(req_arg(args, "--out").map_err(|e| (1, e))?);
-            let crypto_hdr = match arg_val(args, "--crypto-header") {
-                Some(p) => PathBuf::from(p),
-                None => default_suite_native_path("vibeslayer-suite/native_src/vs_crypto_core.h")
-                    .unwrap_or_else(|_| PathBuf::new()),
-            };
-            let mut plain = fs::read(&in_path).map_err(|e| {
-                secure_zero(&mut key);
-                (1, format!("Failed reading --in: {e}"))
-            })?;
-            let res =
-                build_protected_elf_freestanding(&key, &crypto_hdr, &asset_id, &plain, &out_path);
-            secure_zero(&mut key);
-            secure_zero(&mut plain);
-            let (lease_hex, rx_hex) =
-                res.map_err(|e| (1, format!("build-elf-freestanding failed: {e}")))?;
-            println!(
-                "{{\"ok\":true,\"leaseKeyHex\":\"{}\",\"rxSha256Hex\":\"{}\"}}",
-                lease_hex, rx_hex
-            );
-            Ok(0)
-        }
-        "wrap-elf" => {
-            let key_hex = req_arg(args, "--key").map_err(|e| (1, e))?;
-            let mut key = parse_key32(&key_hex).map_err(|e| (1, e))?;
-            let asset_id = req_arg(args, "--asset-id").map_err(|e| (1, e))?;
-            let in_path = req_arg(args, "--in").map_err(|e| (1, e))?;
-            let out_path = PathBuf::from(req_arg(args, "--out").map_err(|e| (1, e))?);
-            let standalone = args.iter().any(|x| x == "--standalone");
-            let crypto_hdr = match arg_val(args, "--crypto-header") {
-                Some(p) => PathBuf::from(p),
-                None => default_suite_native_path("vibeslayer-suite/native_src/vs_crypto_core.h")
-                    .unwrap_or_else(|_| PathBuf::new()),
-            };
-            let mut plain = fs::read(&in_path).map_err(|e| {
-                secure_zero(&mut key);
-                (1, format!("Failed reading --in: {e}"))
-            })?;
-            let res = wrap_elf_freestanding(
+        Commands::Demo => {
+            let key = SecretKey32::generate().map_err(|e| (1, e.to_string()))?;
+            let payload = b"vibe-slayer v2 audited STREAM + blind watermark self-check";
+            let sealed = vs_vault::seal_vspk3_v2(
                 &key,
-                &crypto_hdr,
-                &asset_id,
-                &plain,
-                standalone,
-                &out_path,
-            );
-            secure_zero(&mut key);
-            secure_zero(&mut plain);
-            let (lease_hex, rx_hex) = res.map_err(|e| (1, format!("wrap-elf failed: {e}")))?;
+                AeadAlg::Aes256Gcm,
+                "demo",
+                "self-check",
+                "local",
+                payload,
+            )
+            .map_err(|e| (1, e.to_string()))?;
+            let opened = vs_vault::unseal_vspk3_v2(
+                &key,
+                AeadAlg::Aes256Gcm,
+                "demo",
+                "self-check",
+                "local",
+                &sealed,
+            )
+            .map_err(|e| (1, e.to_string()))?;
+            let vault_ok = opened == payload;
+            let mut rgb = vec![120u8; 256 * 256 * 3];
+            let buyer = 0x0123_4567_89AB_CDEFu64;
+            let psnr = vs_watermark::embed_frame_rgb(
+                &mut rgb,
+                256,
+                256,
+                &key,
+                buyer,
+                vs_watermark::EmbedConfig::default(),
+            )
+            .map_err(|e| (1, e.to_string()))?;
+            let wm = decode_frame_rgb_blind(&rgb, 256, 256, &key).map_err(|e| (1, e.to_string()))?;
             println!(
-                "{{\"ok\":true,\"standalone\":{},\"leaseKeyHex\":\"{}\",\"rxSha256Hex\":\"{}\"}}",
-                if standalone { "true" } else { "false" },
-                lease_hex,
-                rx_hex
+                "{}",
+                serde_json::json!({
+                    "ok": vault_ok && wm.verified_mac && wm.buyer_id == buyer,
+                    "vaultStreamRoundtrip": vault_ok,
+                    "watermarkPsnrDb": (psnr * 100.0).round() / 100.0,
+                    "watermarkBuyerHex": format!("{:016x}", wm.buyer_id),
+                    "watermarkVerifiedMac": wm.verified_mac,
+                })
             );
-            Ok(0)
+            Ok(())
         }
-        "embed-wm64" => {
-            let key_hex = req_arg(args, "--key").map_err(|e| (1, e))?;
-            let mut key = parse_key32(&key_hex).map_err(|e| (1, e))?;
-            let asset_id = req_arg(args, "--asset-id").map_err(|e| (1, e))?;
-            let context = arg_val(args, "--context").unwrap_or_default();
-            let wm_hex = req_arg(args, "--wm-id-hex").map_err(|e| (1, e))?;
-            let wm_bytes = hex_decode(&wm_hex).map_err(|e| {
-                secure_zero(&mut key);
-                (1, format!("Invalid --wm-id-hex: {e}"))
-            })?;
-            let wm_arr: [u8; 8] = wm_bytes.try_into().map_err(|_| {
-                secure_zero(&mut key);
-                (1, "--wm-id-hex must be 16 hex chars (8 bytes)".to_string())
-            })?;
-            let wm_u64 = u64::from_be_bytes(wm_arr);
-            let in_path = req_arg(args, "--in").map_err(|e| (1, e))?;
-            let out_pos = req_arg(args, "--out-positions").map_err(|e| (1, e))?;
-
-            let vspk = fs::read(&in_path).map_err(|e| {
-                secure_zero(&mut key);
-                (1, format!("Failed reading --in: {e}"))
-            })?;
-            let res = embed_wm64_for_lease(&key, &asset_id, &context, wm_u64, &vspk);
-            secure_zero(&mut key);
-            let positions = res.map_err(|e| (1, format!("embed-wm64 failed: {e}")))?;
-            let mut out = Vec::with_capacity(positions.len() * 2);
-            for v in &positions {
-                out.extend_from_slice(&v.to_le_bytes());
-            }
-            fs::write(&out_pos, &out)
-                .map_err(|e| (1, format!("Failed writing --out-positions: {e}")))?;
-            println!("{{\"ok\":true,\"coords\":{}}}", positions.len());
-            Ok(0)
-        }
-        "decode-wm64" => {
-            let key_hex = req_arg(args, "--key").map_err(|e| (1, e))?;
-            let mut key = parse_key32(&key_hex).map_err(|e| (1, e))?;
-            let asset_id = req_arg(args, "--asset-id").map_err(|e| (1, e))?;
-            let ref_path = req_arg(args, "--owner-ref").map_err(|e| (1, e))?;
-            let cap_path = req_arg(args, "--captured").map_err(|e| (1, e))?;
-
-            let ref_bytes = fs::read(&ref_path).map_err(|e| {
-                secure_zero(&mut key);
-                (1, format!("Failed reading --owner-ref: {e}"))
-            })?;
-            let cap_bytes = fs::read(&cap_path).map_err(|e| {
-                secure_zero(&mut key);
-                (1, format!("Failed reading --captured: {e}"))
-            })?;
-            let owner_ref = to_i16_le(&ref_bytes).map_err(|e| {
-                secure_zero(&mut key);
-                (1, e)
-            })?;
-            let captured = to_i16_le(&cap_bytes).map_err(|e| {
-                secure_zero(&mut key);
-                (1, e)
-            })?;
-            let res = decode_wm64_o1(&key, &asset_id, &owner_ref, &captured);
-            secure_zero(&mut key);
-            let (wm_u64, conf) = res.map_err(|e| (1, format!("decode-wm64 failed: {e}")))?;
-            println!(
-                "{{\"ok\":true,\"decodedWatermarkIdHex\":\"{:016x}\",\"meanChipConfidence\":{:.6}}}",
-                wm_u64, conf
-            );
-            Ok(0)
-        }
-        "homo-keygen" => {
-            let sk_path = req_arg(args, "--sk").map_err(|e| (1, e))?;
-            let pk_path = req_arg(args, "--pk").map_err(|e| (1, e))?;
-            let (sk, pk) = vibeslayer_core::encrypted_compute::homo_keygen()
-                .map_err(|e| (1, format!("homo-keygen failed: {e}")))?;
-            let mut sk_bytes = vibeslayer_core::encrypted_compute::serialize_secret_key(&sk);
-            let pk_bytes = vibeslayer_core::encrypted_compute::serialize_public_key(&pk);
-            let wr_sk = fs::write(&sk_path, &sk_bytes);
-            secure_zero(&mut sk_bytes);
-            wr_sk.map_err(|e| (1, format!("Failed writing --sk: {e}")))?;
-            fs::write(&pk_path, &pk_bytes).map_err(|e| (1, format!("Failed writing --pk: {e}")))?;
-            println!(
-                "{{\"ok\":true,\"ringDegree\":{},\"skBytes\":{},\"pkEvkBytes\":{}}}",
-                vibeslayer_core::encrypted_compute::RING_N,
-                8 + vibeslayer_core::encrypted_compute::RING_N,
-                pk_bytes.len()
-            );
-            Ok(0)
-        }
-        "homo-encrypt" => {
-            let pk_path = req_arg(args, "--pk").map_err(|e| (1, e))?;
-            let val_str = req_arg(args, "--value").map_err(|e| (1, e))?;
-            let val: i64 = val_str
-                .parse()
-                .map_err(|_| (1, format!("Invalid integer --value: {val_str}")))?;
-            let out_path = req_arg(args, "--out").map_err(|e| (1, e))?;
-            let pk_raw = fs::read(&pk_path).map_err(|e| (1, format!("Failed reading --pk: {e}")))?;
-            let pk = vibeslayer_core::encrypted_compute::deserialize_public_key(&pk_raw)
-                .map_err(|e| (1, e))?;
-            let ct = vibeslayer_core::encrypted_compute::homo_encrypt_scalar(&pk, val)
-                .map_err(|e| (1, e))?;
-            let ct_bytes = vibeslayer_core::encrypted_compute::serialize_ciphertext(&ct);
-            fs::write(&out_path, &ct_bytes).map_err(|e| (1, format!("Failed writing --out: {e}")))?;
-            println!(
-                "{{\"ok\":true,\"ciphertextBytes\":{},\"sha256\":\"{}\"}}",
-                ct_bytes.len(),
-                hex_encode(&sha256(&ct_bytes))
-            );
-            Ok(0)
-        }
-        "homo-eval" => {
-            let pk_path = req_arg(args, "--pk").map_err(|e| (1, e))?;
-            let op = req_arg(args, "--op").map_err(|e| (1, e))?;
-            let out_path = req_arg(args, "--out").map_err(|e| (1, e))?;
-            let pk_raw = fs::read(&pk_path).map_err(|e| (1, format!("Failed reading --pk: {e}")))?;
-            let pk = vibeslayer_core::encrypted_compute::deserialize_public_key(&pk_raw)
-                .map_err(|e| (1, e))?;
-            let load_ct = |flag: &str| -> Result<vibeslayer_core::encrypted_compute::HomoCiphertext, (i32, String)> {
-                let p = req_arg(args, flag).map_err(|e| (1, e))?;
-                let raw = fs::read(&p).map_err(|e| (1, format!("Failed reading {flag}: {e}")))?;
-                vibeslayer_core::encrypted_compute::deserialize_ciphertext(&raw).map_err(|e| (1, e))
+        Commands::Serve3d {
+            path,
+            bind,
+            key_args,
+            key_out,
+            auth_key_file,
+            allow_unauthenticated_trace,
+            allow_origin,
+            allow_any_origin,
+            frame_ancestors,
+            max_sphere_coverage,
+            disable_perturbation,
+            trust_proxy,
+            jpeg_quality,
+        } => {
+            let master = match key_args.resolve_optional().map_err(|e| (1, e))? {
+                Some(k) => k,
+                None => {
+                    let gen = SecretKey32::generate().map_err(|e| (1, e.to_string()))?;
+                    if let Some(ref ko) = key_out {
+                        write_key_file_0600(ko, &gen).map_err(|e| (1, e))?;
+                        eprintln!("[vibe-slayer] wrote 0600 watermark key to {}", ko.display());
+                    } else {
+                        eprintln!(
+                            "[vibe-slayer] ephemeral watermark key (pass --key-out <FILE> to save securely)"
+                        );
+                    }
+                    gen
+                }
             };
-            let res_ct = match op.as_str() {
-                "add" => {
-                    let a = load_ct("--a")?;
-                    let b = load_ct("--b")?;
-                    vibeslayer_core::encrypted_compute::homo_add(&a, &b)
-                }
-                "sub" => {
-                    let a = load_ct("--a")?;
-                    let b = load_ct("--b")?;
-                    vibeslayer_core::encrypted_compute::homo_sub(&a, &b)
-                }
-                "mul" => {
-                    let a = load_ct("--a")?;
-                    let b = load_ct("--b")?;
-                    vibeslayer_core::encrypted_compute::homo_mul_encrypted(&pk, &a, &b)
-                }
-                "quad" => {
-                    let x = load_ct("--x")?;
-                    let c2 = load_ct("--c2")?;
-                    let c1 = load_ct("--c1")?;
-                    let c0 = load_ct("--c0")?;
-                    vibeslayer_core::encrypted_compute::homo_eval_quadratic_encrypted(
-                        &pk, &x, &c2, &c1, &c0,
-                    )
-                }
-                _ => return Err((1, format!("Unsupported --op '{op}' (use add|sub|mul|quad)"))),
-            };
-            let ct_bytes = vibeslayer_core::encrypted_compute::serialize_ciphertext(&res_ct);
-            fs::write(&out_path, &ct_bytes).map_err(|e| (1, format!("Failed writing --out: {e}")))?;
-            println!(
-                "{{\"ok\":true,\"op\":\"{}\",\"secretKeyUsed\":false,\"ciphertextBytes\":{}}}",
-                op,
-                ct_bytes.len()
-            );
-            Ok(0)
-        }
-        "homo-decrypt" => {
-            let sk_path = req_arg(args, "--sk").map_err(|e| (1, e))?;
-            let in_path = req_arg(args, "--in").map_err(|e| (1, e))?;
-            let mut sk_raw = fs::read(&sk_path).map_err(|e| (1, format!("Failed reading --sk: {e}")))?;
-            let sk_res = vibeslayer_core::encrypted_compute::deserialize_secret_key(&sk_raw);
-            secure_zero(&mut sk_raw);
-            let sk = sk_res.map_err(|e| (1, e))?;
-            let ct_raw = fs::read(&in_path).map_err(|e| (1, format!("Failed reading --in: {e}")))?;
-            let ct = vibeslayer_core::encrypted_compute::deserialize_ciphertext(&ct_raw)
-                .map_err(|e| (1, e))?;
-            let val = vibeslayer_core::encrypted_compute::homo_decrypt_scalar(&sk, &ct);
-            println!("{{\"ok\":true,\"value\":{}}}", val);
-            Ok(0)
-        }
-        "init-config" => {
-            let preset = match arg_val(args, "--preset") {
-                Some(p) => vibeslayer_core::params::SecurityPreset::parse(&p).map_err(|e| (1, e))?,
-                None => vibeslayer_core::params::SecurityPreset::Balanced,
-            };
-            let out_path = PathBuf::from(
-                arg_val(args, "-o")
-                    .or_else(|| arg_val(args, "--out"))
-                    .unwrap_or_else(|| "vibeslayer.config.json".to_string()),
-            );
-            let body = vibeslayer_core::params::build_default_config_template(preset);
-            if let Some(parent) = out_path.parent() {
-                if !parent.as_os_str().is_empty() {
-                    fs::create_dir_all(parent)
-                        .map_err(|e| (1, format!("Failed creating config dir: {e}")))?;
-                }
-            }
-            fs::write(&out_path, body.as_bytes())
-                .map_err(|e| (1, format!("Failed writing config '{}': {e}", out_path.display())))?;
-            println!(
-                "{{\"ok\":true,\"preset\":\"{}\",\"configFile\":\"{}\"}}",
-                preset.as_str(),
-                out_path.display()
-            );
-            Ok(0)
-        }
-        "shield-3d" => {
-            let in_path = match arg_val(args, "--in") {
-                Some(p) => p,
-                None => args
-                    .get(2)
-                    .filter(|s| !s.starts_with('-'))
-                    .cloned()
-                    .ok_or_else(|| (1, "Missing GLB path (--in <file.glb> or positional)".to_string()))?,
-            };
-            let out_dir = PathBuf::from(
-                arg_val(args, "--out")
-                    .or_else(|| arg_val(args, "-o"))
-                    .unwrap_or_else(|| format!("{in_path}.shielded")),
-            );
-            let cfg_json = match arg_val(args, "--config") {
-                Some(p) => Some(
-                    vibeslayer_core::params::load_config_json(&PathBuf::from(p))
-                        .map_err(|e| (1, e))?,
+            let auth_key = match auth_key_file {
+                Some(ref p) => Some(
+                    read_key_file(p, key_args.allow_insecure_key_file).map_err(|e| (1, e))?,
                 ),
                 None => None,
             };
-            let cli_preset = arg_val(args, "--preset");
-            let preset = vibeslayer_core::params::detect_preset_from_sources(
-                cli_preset.as_deref(),
-                cfg_json.as_ref(),
-                "shield3d",
-            )
-            .map_err(|e| (1, e))?;
-            let mut sparams = vibeslayer_core::params::Shield3dParams::from_preset(preset);
-            if let Some(ref cfg) = cfg_json {
-                sparams.apply_json(cfg).map_err(|e| (1, e))?;
-            }
-            if let Some(gs) = parse_typed_arg::<usize>(args, "--gpu-stages").map_err(|e| (1, e))? {
-                sparams.gpu_stages = gs;
-            }
-            if let Some(cp) = parse_typed_arg::<f32>(args, "--chaff-pct").map_err(|e| (1, e))? {
-                sparams.chaff_pct = cp;
-            }
-            if let Some(md) = parse_typed_arg::<usize>(args, "--max-tex-dim").map_err(|e| (1, e))? {
-                sparams.max_tex_dim = md;
-            }
-            if let Some(tg) = parse_typed_arg::<usize>(args, "--tile-grid").map_err(|e| (1, e))? {
-                sparams.tile_grid = tg;
-            }
-            if let Some(pm) = arg_val(args, "--png-mode") {
-                sparams.png_mode =
-                    vibeslayer_core::params::PngMode::parse(&pm).map_err(|e| (1, e))?;
-            }
-            if let Some(tf) = arg_val(args, "--tex-format") {
-                sparams.tex_format =
-                    vibeslayer_core::params::TexFormat::parse(&tf).map_err(|e| (1, e))?;
-            }
-            if let Some(tq) = parse_typed_arg::<u8>(args, "--tex-quality").map_err(|e| (1, e))? {
-                sparams.tex_quality = tq;
-            }
-            if let Some(kf) = arg_val(args, "--key-file") {
-                sparams.key_file = Some(PathBuf::from(kf));
-            }
-            sparams.validate().map_err(|e| (1, e))?;
 
-            let asset_id = arg_val(args, "--asset-id").unwrap_or_else(|| {
-                PathBuf::from(&in_path)
+            let catalog = AssetCatalog::new();
+            let count = if path.is_dir() {
+                catalog.register_dir(&path).map_err(|e| (1, e.to_string()))?
+            } else {
+                let id = path
                     .file_stem()
                     .and_then(|s| s.to_str())
-                    .unwrap_or("mesh-3d")
-                    .to_string()
-            });
-            let mut key = match arg_val(args, "--key") {
-                Some(kh) => parse_key32(&kh).map_err(|e| (1, e))?,
+                    .unwrap_or("model")
+                    .to_string();
+                catalog.register_file(id, path);
+                1
+            };
+            let mut cfg = Server3dConfig::new(master);
+            cfg.auth_signing_key = auth_key;
+            cfg.allow_unauthenticated_trace = allow_unauthenticated_trace;
+            cfg.allowed_origins = allow_origin;
+            cfg.allow_any_origin = allow_any_origin;
+            cfg.frame_ancestors = frame_ancestors;
+            cfg.max_sphere_coverage = max_sphere_coverage.clamp(0.05, 1.0);
+            cfg.anti_3dgs = !disable_perturbation;
+            cfg.trusted_proxies = trust_proxy;
+            cfg.jpeg_quality = jpeg_quality.clamp(60, 95);
+
+            let state = App3dState::new(catalog, cfg);
+            let app = build_3d_router(state);
+            let listener = tokio::net::TcpListener::bind(bind)
+                .await
+                .map_err(|e| (1, format!("bind {bind} failed: {e}")))?;
+            eprintln!(
+                "[vibe-slayer] serving {count} 3D model(s) on http://{bind} (GET /v1/models, embed /v1/embed/vs-3d-viewer.js)"
+            );
+            axum::serve(
+                listener,
+                app.into_make_service_with_connect_info::<SocketAddr>(),
+            )
+            .await
+            .map_err(|e| (1, format!("server error: {e}")))?;
+            Ok(())
+        }
+        Commands::Trace3d {
+            image_flag,
+            image_pos,
+            key_args,
+        } => {
+            let image = image_flag
+                .or(image_pos)
+                .ok_or_else(|| (1, "specify image path (positional or --image)".to_string()))?;
+            let wm_key = key_args.resolve_required().map_err(|e| (1, e))?;
+            let mut reader = ImageReader::open(&image)
+                .map_err(|e| (1, format!("open image failed: {e}")))?
+                .with_guessed_format()
+                .map_err(|e| (1, format!("detect format failed: {e}")))?;
+            let mut limits = Limits::default();
+            limits.max_image_width = Some(4096);
+            limits.max_image_height = Some(4096);
+            limits.max_alloc = Some(64 * 1024 * 1024);
+            reader.limits(limits);
+            let img = reader
+                .decode()
+                .map_err(|e| (1, format!("decode image failed: {e}")))?
+                .to_rgb8();
+            let w = img.width() as usize;
+            let h = img.height() as usize;
+            match decode_frame_rgb_blind(img.as_raw(), w, h, &wm_key) {
+                Ok(wm) => {
+                    println!(
+                        "{}",
+                        serde_json::json!({
+                            "ok": true,
+                            "detected": true,
+                            "buyer_id_hex": format!("{:016x}", wm.buyer_id),
+                            "verified_mac": wm.verified_mac,
+                            "sync_z_score": wm.sync_z_score,
+                            "bit_confidence": wm.bit_confidence,
+                            "detected_scale": wm.detected_scale,
+                            "detected_offset": wm.detected_offset,
+                        })
+                    );
+                    Ok(())
+                }
+                Err(e) => {
+                    println!(
+                        "{}",
+                        serde_json::json!({
+                            "ok": false,
+                            "detected": false,
+                            "error": e.to_string()
+                        })
+                    );
+                    Err((2, e.to_string()))
+                }
+            }
+        }
+        Commands::Vault { action } => match action {
+            VaultCommands::Seal {
+                in_pos,
+                in_path,
+                out_path,
+                key_args,
+                domain,
+                asset_id,
+                context,
+                cipher,
+                v1,
+            } => {
+                let src = in_path
+                    .or(in_pos)
+                    .ok_or_else(|| (1, "specify input file (positional or --in)".to_string()))?;
+                let k = key_args.resolve_required().map_err(|e| (1, e))?;
+                let res = vault_seal_cmd(
+                    &src,
+                    &out_path,
+                    &k,
+                    &domain,
+                    &asset_id,
+                    &context,
+                    cipher.into(),
+                    v1,
+                )
+                .map_err(|e| (1, e))?;
+                println!("{res}");
+                Ok(())
+            }
+            VaultCommands::Unseal {
+                in_pos,
+                in_path,
+                out_path,
+                key_args,
+                domain,
+                asset_id,
+                context,
+                cipher,
+            } => {
+                let src = in_path
+                    .or(in_pos)
+                    .ok_or_else(|| (1, "specify input vault file (positional or --in)".to_string()))?;
+                let k = key_args.resolve_required().map_err(|e| (1, e))?;
+                let res = vault_unseal_cmd(
+                    &src,
+                    &out_path,
+                    &k,
+                    &domain,
+                    &asset_id,
+                    &context,
+                    cipher.map(Into::into),
+                )
+                .map_err(|e| (3, e))?;
+                println!("{res}");
+                Ok(())
+            }
+            VaultCommands::Inspect {
+                in_pos,
+                in_path,
+                key_args,
+                domain,
+                asset_id,
+                context,
+                cipher,
+            } => {
+                let src = in_path
+                    .or(in_pos)
+                    .ok_or_else(|| (1, "specify input vault file (positional or --in)".to_string()))?;
+                let k = key_args.resolve_required().map_err(|e| (1, e))?;
+                let candidates: Vec<AeadAlg> = match cipher {
+                    Some(c) => vec![c.into()],
+                    None => vec![AeadAlg::Aes256Gcm, AeadAlg::ChaCha20Poly1305],
+                };
+                for alg in candidates {
+                    let f = File::open(&src).map_err(|e| (1, format!("open failed: {e}")))?;
+                    if let Ok(ra) = Vspk3V2RandomAccess::open(&k, alg, &domain, &asset_id, &context, f)
+                    {
+                        println!(
+                            "{}",
+                            serde_json::json!({
+                                "ok": true,
+                                "format": "vspk3-v2-stream",
+                                "cipher": format!("{alg:?}"),
+                                "chunkSize": VSPK3_V2_CHUNK_PLAIN,
+                                "chunkCount": ra.chunk_count(),
+                            })
+                        );
+                        return Ok(());
+                    }
+                }
+                Err((3, "vault authentication failed".into()))
+            }
+        },
+        Commands::Website {
+            dir,
+            out,
+            key_args,
+            key_out,
+            site_id,
+        } => {
+            let master = match key_args.resolve_optional().map_err(|e| (1, e))? {
+                Some(k) => k,
                 None => {
-                    let mut k = [0u8; 32];
-                    vibeslayer_core::os_random_bytes(&mut k).map_err(|e| (1, e))?;
-                    k
+                    let gen = SecretKey32::generate().map_err(|e| (1, e.to_string()))?;
+                    if let Some(ref ko) = key_out {
+                        write_key_file_0600(ko, &gen).map_err(|e| (1, e))?;
+                        eprintln!("[vibe-slayer] wrote 0600 website master key to {}", ko.display());
+                    } else {
+                        return Err((
+                            1,
+                            "pass --key-file / VIBESLAYER_KEY or --key-out <FILE> to store generated key securely".into(),
+                        ));
+                    }
+                    gen
                 }
             };
-            let glb = fs::read(&in_path).map_err(|e| {
-                secure_zero(&mut key);
-                (1, format!("Failed reading GLB: {e}"))
-            })?;
-            let summary = vibeslayer_core::encrypted_compute::build_shield_3d_bundle_with_params(
-                &key, &asset_id, &glb, &out_dir, &sparams,
-            );
-            let viewer_info = if summary.is_ok() {
-                vibeslayer_core::shield_viewer::build_interactive_viewer_assets_with_params(
-                    &key,
-                    &asset_id,
-                    &glb,
-                    &out_dir,
-                    &sparams,
-                )
-                .unwrap_or(None)
-            } else {
-                None
-            };
-            let verify = if summary.is_ok() {
-                let sb = fs::read(out_dir.join("model.vsshield")).unwrap_or_default();
-                Some(vibeslayer_core::encrypted_compute::verify_shield_3d_gpu_exec(
-                    &key, &asset_id, &glb, &sb,
-                ))
-            } else {
-                None
-            };
-            secure_zero(&mut key);
-            let s = summary.map_err(|e| (1, format!("shield-3d failed: {e}")))?;
-            let (real_ok, chaff_ok, max_err) = verify
-                .unwrap()
-                .map_err(|e| (1, format!("shield-3d verify failed: {e}")))?;
-            let (full_real, full_chaff, tex_cnt) =
-                viewer_info.unwrap_or((s.real_triangles, s.chaff_triangles, 0));
-            let resolved_key_path = sparams
-                .key_file
-                .clone()
-                .unwrap_or_else(|| out_dir.join(".vsshield.key"));
-            let params_json = vibeslayer_core::mini_json::to_json_compact(&sparams.to_json());
+            let files = collect_web_files(&dir).map_err(|e| (1, e))?;
+            let count = files.len();
+            let bundle = WebBundle::seal_files(&site_id, master, files)
+                .map_err(|e| (1, format!("seal web bundle failed: {e}")))?;
+            let bytes = bundle
+                .to_bytes()
+                .map_err(|e| (1, format!("serialize bundle failed: {e}")))?;
+            fs::write(&out, &bytes).map_err(|e| (1, format!("write bundle failed: {e}")))?;
             println!(
-                "{{\"ok\":true,\"preset\":\"{}\",\"outDir\":\"{}\",\"keyFile\":\"{}\",\"realTriangles\":{},\"chaffTriangles\":{},\"fullMeshTriangles\":{},\"fullChaffTriangles\":{},\"encryptedTextures\":{},\"totalEncryptedVertices\":{},\"shieldBytes\":{},\"shaderBytes\":{},\"verifiedRealVerts\":{},\"verifiedChaffClipped\":{},\"maxClipSpaceError\":{:.8},\"params\":{}}}",
-                sparams.preset.as_str(),
-                out_dir.display(),
-                resolved_key_path.display(),
-                s.real_triangles,
-                s.chaff_triangles,
-                full_real,
-                full_chaff,
-                tex_cnt,
-                s.total_vertices_emitted,
-                s.shield_bin_bytes,
-                s.shader_bytes,
-                real_ok,
-                chaff_ok,
-                max_err,
-                params_json
+                "{}",
+                serde_json::json!({
+                    "ok": true,
+                    "format": "vsweb-v2",
+                    "siteId": site_id,
+                    "files": count,
+                    "outputBytes": bytes.len(),
+                    "out": out.display().to_string(),
+                })
             );
-            Ok(0)
+            Ok(())
         }
-        "serve-3d" => {
-            let dir_str = match arg_val(args, "--dir") {
-                Some(d) => d,
-                None => args
-                    .get(2)
-                    .filter(|s| !s.starts_with('-'))
-                    .cloned()
-                    .ok_or_else(|| (1, "Usage: vibe-slayer serve-3d <shielded_dir> [--preset fast|balanced|paranoid] [--config <cfg.json>] [--addr 127.0.0.1:8790] [--origin http://127.0.0.1:8790] [--title <name>] [--watermark on|off] [--wm-strength 1.2] [--csp strict|relaxed|off] [--anti-hook on|off] [--key-file <path>] [--auth-secret <tok>] [--auth-hmac-key <64-hex>] [--trust-proxy <ip1,ip2>]".to_string()))?,
-            };
-            let cfg_json = match arg_val(args, "--config") {
-                Some(p) => Some(
-                    vibeslayer_core::params::load_config_json(&PathBuf::from(p))
-                        .map_err(|e| (1, e))?,
+        Commands::Serve {
+            bundle,
+            bind,
+            key_args,
+            auth_key_file,
+            allow_anonymous_public_site,
+            no_spa_fallback,
+            mode,
+        } => {
+            let master = key_args.resolve_required().map_err(|e| (1, e))?;
+            let auth_key = match auth_key_file {
+                Some(ref p) => Some(
+                    read_key_file(p, key_args.allow_insecure_key_file).map_err(|e| (1, e))?,
                 ),
                 None => None,
             };
-            let cli_preset = arg_val(args, "--preset");
-            let preset = vibeslayer_core::params::detect_preset_from_sources(
-                cli_preset.as_deref(),
-                cfg_json.as_ref(),
-                "serve3d",
-            )
-            .map_err(|e| (1, e))?;
-            let mut rparams = vibeslayer_core::params::Serve3dParams::from_preset(preset);
-            if let Some(ref cfg) = cfg_json {
-                rparams.apply_json(cfg).map_err(|e| (1, e))?;
+            if auth_key.is_none() && !allow_anonymous_public_site {
+                return Err((
+                    1,
+                    "pass --auth-key-file <PATH> (recommended) or explicit --allow-anonymous-public-site".into(),
+                ));
             }
-            if let Some(a) = arg_val(args, "--addr") {
-                rparams.addr = a;
-            }
-            if let Some(o) = arg_val(args, "--origin") {
-                rparams.origin = Some(o);
-            }
-            if let Some(kf) = arg_val(args, "--key-file") {
-                rparams.key_file = Some(PathBuf::from(kf));
-            }
-            if let Some(s) = arg_val(args, "--auth-secret") {
-                rparams.auth_secret = Some(s);
-            }
-            if let Some(h) = arg_val(args, "--auth-hmac-key") {
-                rparams.auth_hmac_key = Some(h);
-            }
-            if let Some(tp) = arg_val(args, "--trust-proxy") {
-                rparams.trust_proxy = Some(tp);
-            }
-            if let Some(t) = arg_val(args, "--title") {
-                rparams.title = Some(t);
-            }
-            if let Some(w) = arg_val(args, "--watermark") {
-                rparams.watermark =
-                    vibeslayer_core::params::parse_bool_flag(&w, "--watermark")
-                        .map_err(|e| (1, e))?;
-            }
-            if let Some(ws) = parse_typed_arg::<f32>(args, "--wm-strength").map_err(|e| (1, e))? {
-                rparams.wm_strength = ws;
-            }
-            if let Some(ah) = arg_val(args, "--anti-hook") {
-                rparams.anti_hook =
-                    vibeslayer_core::params::parse_bool_flag(&ah, "--anti-hook")
-                        .map_err(|e| (1, e))?;
-            }
-            if let Some(ac) = arg_val(args, "--anti-cdp") {
-                rparams.anti_cdp =
-                    vibeslayer_core::params::parse_bool_flag(&ac, "--anti-cdp")
-                        .map_err(|e| (1, e))?;
-            }
-            if let Some(ast) = arg_val(args, "--anti-stealth") {
-                rparams.anti_stealth =
-                    vibeslayer_core::params::AntiStealthMode::parse(&ast)
-                        .map_err(|e| (1, e))?;
-            }
-            if let Some(csp) = arg_val(args, "--csp") {
-                rparams.csp =
-                    vibeslayer_core::params::CspMode::parse(&csp).map_err(|e| (1, e))?;
-            }
-            if let Some(cj) = parse_typed_arg::<f32>(args, "--camera-jitter").map_err(|e| (1, e))? {
-                rparams.camera_jitter = cj;
-            }
-            if let Some(tt) = parse_typed_arg::<u64>(args, "--ticket-ttl").map_err(|e| (1, e))? {
-                rparams.ticket_ttl_sec = tt;
-            }
-            if let Some(st) = parse_typed_arg::<u64>(args, "--session-ttl").map_err(|e| (1, e))? {
-                rparams.session_ttl_sec = st;
-            }
-            if let Some(cb) = parse_typed_arg::<usize>(args, "--camera-budget").map_err(|e| (1, e))? {
-                rparams.camera_budget = cb;
-            }
-            if let Some(ab) = parse_typed_arg::<usize>(args, "--asset-budget").map_err(|e| (1, e))? {
-                rparams.asset_budget = ab;
-            }
-            if let Some(ml) =
-                parse_typed_arg::<usize>(args, "--max-leases-per-min").map_err(|e| (1, e))?
-            {
-                rparams.max_leases_per_min = ml;
-            }
-            if let Some(ms) = parse_typed_arg::<usize>(args, "--max-sessions").map_err(|e| (1, e))? {
-                rparams.max_sessions = ms;
-            }
-            if let Some(mc) =
-                parse_typed_arg::<usize>(args, "--max-conns-per-ip").map_err(|e| (1, e))?
-            {
-                rparams.max_conns_per_ip = mc;
-            }
-            if let Some(mt) =
-                parse_typed_arg::<usize>(args, "--max-tex-concurrency").map_err(|e| (1, e))?
-            {
-                rparams.max_tex_concurrency = mt;
-            }
-            if let Some(ht) =
-                parse_typed_arg::<u64>(args, "--header-timeout-ms").map_err(|e| (1, e))?
-            {
-                rparams.header_timeout_ms = ht;
-            }
-            if let Some(bt) =
-                parse_typed_arg::<u64>(args, "--body-timeout-ms").map_err(|e| (1, e))?
-            {
-                rparams.body_timeout_ms = bt;
-            }
-            if let Some(wk) = parse_typed_arg::<usize>(args, "--workers").map_err(|e| (1, e))? {
-                rparams.workers = wk;
-            }
-            if let Some(rm) = arg_val(args, "--mode") {
-                rparams.render_mode =
-                    vibeslayer_core::params::RenderMode3d::parse(&rm).map_err(|e| (1, e))?;
-            }
-            if let Some(sw) = parse_typed_arg::<usize>(args, "--stream-width").map_err(|e| (1, e))? {
-                rparams.stream_width = sw;
-            }
-            if let Some(sh) = parse_typed_arg::<usize>(args, "--stream-height").map_err(|e| (1, e))? {
-                rparams.stream_height = sh;
-            }
-            if let Some(sq) = parse_typed_arg::<u8>(args, "--stream-quality").map_err(|e| (1, e))? {
-                rparams.stream_quality = sq;
-            }
-            rparams.validate().map_err(|e| (1, e))?;
-
-            vibeslayer_core::shield_viewer::serve_shielded_3d_viewer_with_params(
-                &PathBuf::from(dir_str),
-                &rparams,
-            )
-            .map_err(|e| (1, e))?;
-            Ok(0)
-        }
-        "trace-shield-3d" => {
-            let dir_str = req_arg(args, "--dir").map_err(|e| (1, e))?;
-            let wp_path = req_arg(args, "--ripped-wp").map_err(|e| (1, e))?;
-            let key_file = arg_val(args, "--key-file").map(PathBuf::from);
-            let raw = fs::read(&wp_path)
-                .map_err(|e| (1, format!("Failed reading --ripped-wp: {e}")))?;
-            if raw.len() % 12 != 0 {
-                return Err((1, "--ripped-wp byte length must be a multiple of 12 (i32 x,y,z)".to_string()));
-            }
-            let mut wp = Vec::with_capacity(raw.len() / 12);
-            for ch in raw.chunks_exact(12) {
-                wp.push([
-                    i32::from_le_bytes([ch[0], ch[1], ch[2], ch[3]]),
-                    i32::from_le_bytes([ch[4], ch[5], ch[6], ch[7]]),
-                    i32::from_le_bytes([ch[8], ch[9], ch[10], ch[11]]),
-                ]);
-            }
-            let (wm64, conf) = vibeslayer_core::shield_viewer::decode_shield_v2_wm64_from_ripped_wp(
-                &PathBuf::from(&dir_str),
-                key_file.as_deref(),
-                &wp,
-            )
-            .map_err(|e| (1, e))?;
-            println!(
-                "{{\"ok\":true,\"decodedWm64Hex\":\"{:016x}\",\"meanConfidence\":{:.6}}}",
-                wm64, conf
+            let raw = fs::read(&bundle).map_err(|e| (1, format!("read bundle failed: {e}")))?;
+            let wb = WebBundle::from_bytes(master, &raw).map_err(|e| (3, e))?;
+            let state = WebServerState::new(
+                Arc::new(wb),
+                auth_key,
+                allow_anonymous_public_site,
+                !no_spa_fallback,
+                match mode {
+                    GuardModeArg::Off => GuardMode::Off,
+                    GuardModeArg::Observe => GuardMode::Observe,
+                },
             );
-            Ok(0)
+            let app = build_web_router(state);
+            let listener = tokio::net::TcpListener::bind(bind)
+                .await
+                .map_err(|e| (1, format!("bind {bind} failed: {e}")))?;
+            eprintln!("[vibe-slayer] serving authenticated .vsweb v2 bundle on http://{bind}");
+            axum::serve(
+                listener,
+                app.into_make_service_with_connect_info::<SocketAddr>(),
+            )
+            .await
+            .map_err(|e| (1, format!("server error: {e}")))?;
+            Ok(())
         }
-        "trace-stream-frame" => {
-            let dir_str = req_arg(args, "--dir").map_err(|e| (1, e))?;
-            let rgb_path = req_arg(args, "--rgb").map_err(|e| (1, e))?;
-            let width = parse_typed_arg::<usize>(args, "--width")
-                .map_err(|e| (1, e))?
-                .ok_or_else(|| (1, "Missing required argument --width".to_string()))?;
-            let height = parse_typed_arg::<usize>(args, "--height")
-                .map_err(|e| (1, e))?
-                .ok_or_else(|| (1, "Missing required argument --height".to_string()))?;
-            let key_file = arg_val(args, "--key-file").map(PathBuf::from);
-            let rgb = fs::read(&rgb_path)
-                .map_err(|e| (1, format!("Failed reading --rgb: {e}")))?;
-            let (wm64, conf) = vibeslayer_core::raster_stream::decode_stream_frame_rgb_wm64(
-                &PathBuf::from(&dir_str),
-                key_file.as_deref(),
-                &rgb,
-                width,
-                height,
+        Commands::Token { action } => match action {
+            TokenCommands::Mint {
+                key_args,
+                subject,
+                origin,
+                asset_id,
+                scopes,
+                ttl,
+            } => {
+                let k = key_args.resolve_required().map_err(|e| (1, e))?;
+                let now = now_unix_secs();
+                let jti = hex::encode(random_bytes::<12>().map_err(|e| (1, e.to_string()))?);
+                let eff_scopes = if scopes.is_empty() {
+                    vec!["stream:3d".into()]
+                } else {
+                    scopes
+                };
+                let claims = SessionGrantClaims {
+                    sub: subject,
+                    aud: origin,
+                    asset_id,
+                    jti,
+                    iat: now,
+                    exp: now.saturating_add(ttl),
+                    scopes: eff_scopes,
+                };
+                let tok = mint_session_grant(&k, &claims).map_err(|e| (1, e.to_string()))?;
+                println!("{}", serde_json::json!({ "ok": true, "token": tok, "ttlSecs": ttl }));
+                Ok(())
+            }
+            TokenCommands::Verify {
+                key_args,
+                token,
+                origin,
+                asset_id,
+            } => {
+                let k = key_args.resolve_required().map_err(|e| (1, e))?;
+                let claims = verify_session_grant(
+                    &k,
+                    &token,
+                    origin.as_deref(),
+                    asset_id.as_deref(),
+                    Some(now_unix_secs()),
+                )
+                .map_err(|e| (3, e.to_string()))?;
+                println!("{}", serde_json::json!({ "ok": true, "claims": claims }));
+                Ok(())
+            }
+        },
+        Commands::Scan { path } => {
+            let report = scan::scan_path(&path);
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&report).map_err(|e| (1, e.to_string()))?
+            );
+            if report.findings.is_empty() {
+                Ok(())
+            } else {
+                Err((2, format!("{} finding(s) detected", report.findings.len())))
+            }
+        }
+        Commands::Explain { sentence, json } => {
+            let joined = sentence.join(" ");
+            let plan = translate_nl(&joined).map_err(|e| (1, e))?;
+            if json {
+                println!(
+                    "{}",
+                    serde_json::to_string_pretty(&plan).map_err(|e| (1, e.to_string()))?
+                );
+            } else {
+                print!("{}", format_plan_human(&plan, true));
+            }
+            Ok(())
+        }
+        Commands::Ask {
+            sentence,
+            dry_run,
+            json,
+        } => {
+            let joined = sentence.join(" ");
+            let plan = translate_nl(&joined).map_err(|e| (1, e))?;
+            if dry_run {
+                if json {
+                    println!(
+                        "{}",
+                        serde_json::to_string_pretty(&plan).map_err(|e| (1, e.to_string()))?
+                    );
+                } else {
+                    print!("{}", format_plan_human(&plan, true));
+                }
+                return Ok(());
+            }
+            if !json {
+                eprint!("{}", format_plan_human(&plan, false));
+            }
+            let mut argv = vec!["vibe-slayer".to_string()];
+            argv.extend(plan.argv.iter().cloned());
+            let parsed = Cli::try_parse_from(argv).map_err(|e| (1, e.to_string()))?;
+            Box::pin(run_async(parsed)).await
+        }
+        Commands::Pack {
+            key_args,
+            domain,
+            asset_id,
+            context,
+            in_path,
+            out_path,
+        } => {
+            let k = key_args.resolve_required().map_err(|e| (1, e))?;
+            let plain = fs::read(&in_path).map_err(|e| (1, format!("read failed: {e}")))?;
+            let vspk = pack_vspk2(&k, &domain, &asset_id, &context, &plain)
+                .map_err(|e| (1, e.to_string()))?;
+            fs::write(&out_path, &vspk).map_err(|e| (1, format!("write failed: {e}")))?;
+            println!(
+                "{}",
+                serde_json::json!({
+                    "ok": true,
+                    "inputBytes": plain.len(),
+                    "outputBytes": vspk.len(),
+                    "sha256": hex::encode(sha256(&vspk)),
+                })
+            );
+            Ok(())
+        }
+        Commands::Unseal {
+            key_args,
+            domain,
+            asset_id,
+            context,
+            in_path,
+            out_path,
+        } => {
+            let k = key_args.resolve_required().map_err(|e| (1, e))?;
+            let blob = fs::read(&in_path).map_err(|e| (1, format!("read failed: {e}")))?;
+            let plain = unseal_vspk2(&k, &domain, asset_id.as_deref(), &context, &blob)
+                .map_err(|e| (3, e.to_string()))?;
+            fs::write(&out_path, &plain).map_err(|e| (1, format!("write failed: {e}")))?;
+            println!("{}", serde_json::json!({ "ok": true, "plainBytes": plain.len() }));
+            Ok(())
+        }
+        Commands::PackV3 {
+            key_args,
+            domain,
+            asset_id,
+            context,
+            in_path,
+            out_path,
+            v2,
+        } => {
+            let k = key_args.resolve_required().map_err(|e| (1, e))?;
+            let res = vault_seal_cmd(
+                &in_path,
+                &out_path,
+                &k,
+                &domain,
+                &asset_id,
+                &context,
+                AeadAlg::Aes256Gcm,
+                !v2,
             )
             .map_err(|e| (1, e))?;
-            println!(
-                "{{\"ok\":true,\"decodedWm64Hex\":\"{:016x}\",\"meanConfidence\":{:.6}}}",
-                wm64, conf
-            );
-            Ok(0)
+            println!("{res}");
+            Ok(())
         }
-        "mint-token" => {
-            let key_hex = req_arg(args, "--key").map_err(|e| (1, e))?;
-            let mut key = parse_key32(&key_hex).map_err(|e| (1, e))?;
-            let buyer = req_arg(args, "--buyer").map_err(|e| {
-                secure_zero(&mut key);
-                (1, e)
-            })?;
-            let ttl = parse_typed_arg::<u64>(args, "--ttl")
-                .map_err(|e| {
-                    secure_zero(&mut key);
-                    (1, e)
-                })?
-                .unwrap_or(3600);
-            let tok_res = vibeslayer_core::web_runtime::mint_signed_auth_token(&key, &buyer, ttl);
-            secure_zero(&mut key);
-            let tok = tok_res.map_err(|e| (1, e))?;
-            println!(
-                "{{\"ok\":true,\"buyerId\":\"{}\",\"ttlSeconds\":{},\"token\":\"{}\"}}",
-                buyer, ttl, tok
-            );
-            Ok(0)
+        Commands::UnsealV3 {
+            key_args,
+            domain,
+            asset_id,
+            context,
+            in_path,
+            out_path,
+        } => {
+            let k = key_args.resolve_required().map_err(|e| (1, e))?;
+            let res = vault_unseal_cmd(&in_path, &out_path, &k, &domain, &asset_id, &context, None)
+                .map_err(|e| (3, e))?;
+            println!("{res}");
+            Ok(())
         }
-        _ if !cmd.starts_with('-') => auto_cli::run_beginner_subcommand("protect", &args[1..]),
-        _ => Err((
-            1,
-            "Usage: vibe-slayer <target|demo|scan|test|run|unseal|watermark|trace|website|serve|help>".to_string(),
-        )),
     }
 }
 
-fn main() {
-    let args: Vec<String> = env::args().collect();
-    match run(&args) {
-        Ok(0) => {}
-        Ok(code) => std::process::exit(code),
+#[tokio::main]
+async fn main() -> ExitCode {
+    tracing_subscriber::fmt()
+        .with_env_filter(
+            tracing_subscriber::EnvFilter::try_from_default_env()
+                .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("warn")),
+        )
+        .with_writer(std::io::stderr)
+        .init();
+
+    let cli = Cli::parse();
+    match run_async(cli).await {
+        Ok(()) => ExitCode::SUCCESS,
         Err((code, msg)) => {
-            eprintln!("{msg}");
-            std::process::exit(code);
+            eprintln!("error: {msg}");
+            ExitCode::from(code)
+        }
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn every_vs_nl_plan_parses_cleanly_in_clap_cli() {
+        let samples = [
+            "run demo",
+            "stream ./hero.glb on port 8790",
+            "trace watermark in ./leaked.png",
+            "seal ./weights.safetensors",
+            "unseal ./weights.safetensors.vsp3",
+            "inspect ./weights.safetensors.vsp3",
+            "scan ./my-repo",
+            "bundle website ./dist",
+            "serve ./site.vsweb on port 8081",
+            "mint token",
+        ];
+        for s in samples {
+            let plan = translate_nl(s).unwrap();
+            let mut argv = vec!["vibe-slayer".to_string()];
+            argv.extend(plan.argv.iter().cloned());
+            assert!(
+                Cli::try_parse_from(&argv).is_ok(),
+                "NL plan for '{s}' failed clap parse: {argv:?}"
+            );
         }
     }
 }

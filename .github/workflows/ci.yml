@@ -12,19 +12,32 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Rust toolchain
+      - name: Install Rust toolchain with clippy
         uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.23"
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: "20"
 
-      - name: Build native Rust CLI and C99 SDK
+      - name: Clippy lint across entire Rust workspace
+        run: cargo clippy --workspace --all-targets -- -D warnings
+
+      - name: Run all Rust workspace unit & integration tests (release)
+        run: cargo test --workspace --release
+
+      - name: Build native CLI and C99 64-bit STREAM SDK
         run: make -C vibeslayer-native-core all
 
-      - name: Run Rust release unit tests
-        run: cargo test --manifest-path vibeslayer-native-core/rust_core/Cargo.toml --release
+      - name: Run 4-language Rust/C/Go/Python VSPK3 v2 polyglot suite
+        run: python3 vibeslayer-native-core/tests/test_v2_polyglot.py
 
       - name: Test vibeslayer-suite (Node.js)
         run: npm test --prefix vibeslayer-suite

@@ -14,8 +14,8 @@ const CONFIG = Object.freeze({
   GCM_IV_BYTES: 12,
   GCM_TAG_BYTES: 16,
   MODES: new Set(["public-preview", "server-only", "client-sealed"]),
-  ANTI_STEALTH_MODES: new Set(["off", "balanced", "strict"]),
-  ANTI_STEALTH_THRESHOLDS: Object.freeze({ off: Infinity, balanced: 4, strict: 2 }),
+  ANTI_STEALTH_MODES: new Set(["off", "observe", "balanced", "strict"]),
+  ANTI_STEALTH_THRESHOLDS: Object.freeze({ off: Infinity, observe: Infinity, balanced: 4, strict: 2 }),
   PARAM_TYPES: new Set(["int", "number", "string", "boolean", "enum"]),
 });
 
@@ -46,11 +46,12 @@ function buildStealthAttestation({
 } = {}) {
   const m = normalizeAntiStealth(mode);
   if (m === "off") return null;
-  if (telemetry.webdriver || telemetry.cdpRuntimeEnable) {
+  if (m !== "observe" && (telemetry.webdriver || telemetry.cdpRuntimeEnable)) {
     throw policyError("AUTOMATION_DENIED", 403, "Automation or CDP Runtime.enable detected");
   }
   let s = 0;
   let f = 0;
+  if (telemetry.webdriver || telemetry.cdpRuntimeEnable) { s += 4; f |= 64; }
   if ((telemetry.canvas2dUniqueColors ?? 1) > 1) { s += 2; f |= 1; }
   if ((telemetry.webglClearUniqueColors ?? 1) > 1) { s += 2; f |= 2; }
   if ((telemetry.silentAudioNonZeroSamples ?? 0) > 0) { s += 2; f |= 4; }
@@ -69,7 +70,10 @@ function buildStealthAttestation({
 }
 
 function verifyStealthRequest({ mode = "off", headers = {}, attest = null, actionName = "", origin = "" }) {
-  if (mode === "off") return;
+  const m = normalizeAntiStealth(mode);
+  if (m === "off") return { mode: m, riskScore: 0, signals: [], blocked: false };
+  const signals = [];
+  let riskScore = 0;
   const ua = String(headers["user-agent"] || "");
   const chUa = String(headers["sec-ch-ua"] || "");
   const chPlat = String(headers["sec-ch-ua-platform"] || "");
@@ -77,24 +81,33 @@ function verifyStealthRequest({ mode = "off", headers = {}, attest = null, actio
     const fUa = osFamilyFromStr(ua);
     const fCh = osFamilyFromStr(chPlat);
     if (fUa && fCh && fUa !== fCh) {
-      throw policyError("STEALTH_BROWSER_DENIED", 403, "HTTP User-Agent and Sec-CH-UA-Platform mismatch");
+      signals.push("UA_CH_PLATFORM_MISMATCH");
+      riskScore += 4;
+      if (m !== "observe") {
+        throw policyError("STEALTH_BROWSER_DENIED", 403, "HTTP User-Agent and Sec-CH-UA-Platform mismatch");
+      }
     }
   }
-  if (mode === "strict") {
+  if (m === "strict" || m === "observe") {
     for (const hdr of [ua, chUa]) {
       const low = hdr.toLowerCase();
       for (const marker of ["headlesschrome", "playwright", "puppeteer", "phantomjs", "selenium", "webdriver"]) {
         if (low.includes(marker)) {
-          throw policyError("AUTOMATION_DENIED", 403, "Headless or automation browser header blocked");
+          signals.push("AUTOMATION_HEADER_MARKER");
+          riskScore += 4;
+          if (m === "strict") {
+            throw policyError("AUTOMATION_DENIED", 403, "Headless or automation browser header blocked");
+          }
+          break;
         }
       }
     }
   }
   if (!attest) {
-    if (mode === "strict") {
+    if (m === "strict") {
       throw policyError("STEALTH_ATTEST_REQUIRED", 403, "Tier-4 anti-stealth attestation required");
     }
-    return;
+    return { mode: m, riskScore, signals, blocked: false };
   }
   if (
     typeof attest !== "object" ||
@@ -103,9 +116,14 @@ function verifyStealthRequest({ mode = "off", headers = {}, attest = null, actio
     typeof attest.p !== "string" ||
     typeof attest.d !== "string" || attest.d.length !== 64
   ) {
+    if (m === "observe") {
+      signals.push("STEALTH_ATTEST_INVALID");
+      return { mode: m, riskScore: riskScore + 4, signals, blocked: false };
+    }
     throw policyError("STEALTH_ATTEST_INVALID", 403, "Malformed anti-stealth attestation payload");
   }
-  if (attest.s >= CONFIG.ANTI_STEALTH_THRESHOLDS[mode]) {
+  riskScore += attest.s;
+  if (attest.s >= CONFIG.ANTI_STEALTH_THRESHOLDS[m]) {
     throw policyError("STEALTH_BROWSER_DENIED", 403, "Stealth / anti-detect browser denied");
   }
   const expected = crypto
@@ -116,22 +134,39 @@ function verifyStealthRequest({ mode = "off", headers = {}, attest = null, actio
   try {
     provided = Buffer.from(attest.d, "hex");
   } catch {
+    if (m === "observe") {
+      signals.push("STEALTH_ATTEST_INVALID");
+      return { mode: m, riskScore: riskScore + 4, signals, blocked: false };
+    }
     throw policyError("STEALTH_ATTEST_INVALID", 403, "Invalid attestation hex digest");
   }
   if (provided.length !== expected.length || !crypto.timingSafeEqual(provided, expected)) {
+    if (m === "observe") {
+      signals.push("STEALTH_ATTEST_DIGEST_MISMATCH");
+      return { mode: m, riskScore: riskScore + 4, signals, blocked: false };
+    }
     throw policyError("STEALTH_ATTEST_INVALID", 403, "Attestation digest verification failed");
   }
   const fJs = osFamilyFromStr(attest.p);
   if (fJs) {
     const fUa = osFamilyFromStr(ua);
     if (fUa && fUa !== "android" && fJs !== fUa) {
-      throw policyError("STEALTH_BROWSER_DENIED", 403, "Platform attestation contradicts User-Agent");
+      signals.push("PLATFORM_UA_MISMATCH");
+      riskScore += 4;
+      if (m !== "observe") {
+        throw policyError("STEALTH_BROWSER_DENIED", 403, "Platform attestation contradicts User-Agent");
+      }
     }
     const fCh = osFamilyFromStr(chPlat);
     if (fCh && fCh !== "android" && fJs !== fCh) {
-      throw policyError("STEALTH_BROWSER_DENIED", 403, "Platform attestation contradicts Sec-CH-UA-Platform");
+      signals.push("PLATFORM_CH_MISMATCH");
+      riskScore += 4;
+      if (m !== "observe") {
+        throw policyError("STEALTH_BROWSER_DENIED", 403, "Platform attestation contradicts Sec-CH-UA-Platform");
+      }
     }
   }
+  return { mode: m, riskScore, signals, blocked: false };
 }
 
 function policyError(code, status, message) {
@@ -183,7 +218,7 @@ function definePolicy(raw) {
   }
 
   const defaultAntiStealth = normalizeAntiStealth(raw.antiStealth ?? "off");
-  const actions = {};
+  const actions = Object.create(null);
   for (const [actionName, spec] of Object.entries(raw.actions)) {
     if (!spec || !CONFIG.MODES.has(spec.mode)) {
       throw policyError("INVALID_POLICY", 500, `Unsupported action mode for ${actionName}`);
@@ -222,6 +257,7 @@ function definePolicy(raw) {
     signingSecret: secret,
     defaultLeaseTtlMs: raw.defaultLeaseTtlMs ?? CONFIG.DEFAULT_LEASE_TTL_MS,
     maxBodyBytes: raw.maxBodyBytes ?? CONFIG.DEFAULT_MAX_BODY_BYTES,
+    onDecision: typeof raw.onDecision === "function" ? raw.onDecision : null,
     actions: Object.freeze(actions),
   });
 }
@@ -238,7 +274,7 @@ function validateActionParams(paramRules, candidate) {
 
   const out = {};
   for (const [name, rule] of Object.entries(paramRules)) {
-    const val = candidate[name];
+    const val = Object.hasOwn(candidate, name) ? candidate[name] : undefined;
     if (val === undefined) {
       if (rule.optional) continue;
       throw policyError("MISSING_PARAM", 400, `Missing parameter: ${name}`);
@@ -333,12 +369,24 @@ function sealAssetAes256Gcm(plainBytes, keyBytes, aadText = "") {
 }
 
 function unsealAssetAes256Gcm(envelope, keyBytes, expectedAadText = "") {
+  if (!envelope || typeof envelope !== "object") {
+    throw policyError("BAD_ENVELOPE", 400, "Missing AES-256-GCM envelope");
+  }
   const key = Buffer.isBuffer(keyBytes) ? keyBytes : Buffer.from(keyBytes);
-  const iv = Buffer.isBuffer(envelope.iv) ? envelope.iv : Buffer.from(envelope.iv, "base64url");
-  const tag = Buffer.isBuffer(envelope.tag) ? envelope.tag : Buffer.from(envelope.tag, "base64url");
+  if (key.length !== 32) {
+    throw policyError("BAD_KEY", 400, "AES-256-GCM requires a 32-byte key");
+  }
+  const iv = Buffer.isBuffer(envelope.iv) ? envelope.iv : Buffer.from(String(envelope.iv || ""), "base64url");
+  const tag = Buffer.isBuffer(envelope.tag) ? envelope.tag : Buffer.from(String(envelope.tag || ""), "base64url");
+  if (iv.length !== CONFIG.GCM_IV_BYTES) {
+    throw policyError("BAD_IV", 400, `AES-256-GCM requires a ${CONFIG.GCM_IV_BYTES}-byte IV`);
+  }
+  if (tag.length !== CONFIG.GCM_TAG_BYTES) {
+    throw policyError("BAD_TAG", 400, `AES-256-GCM requires a ${CONFIG.GCM_TAG_BYTES}-byte auth tag`);
+  }
   const ciphertext = Buffer.isBuffer(envelope.ciphertext)
     ? envelope.ciphertext
-    : Buffer.from(envelope.ciphertext, "base64url");
+    : Buffer.from(String(envelope.ciphertext || ""), "base64url");
   const decipher = crypto.createDecipheriv(CONFIG.AES_ALGO, key, iv, {
     authTagLength: CONFIG.GCM_TAG_BYTES,
   });
@@ -352,10 +400,33 @@ function extractBoundsFromGlb(glbBytes) {
   if (buf.length < 20 || buf.subarray(0, 4).toString("ascii") !== "glTF") {
     throw policyError("INVALID_GLB", 400, "Input is not a glTF v2 binary");
   }
+  const version = buf.readUInt32LE(4);
+  const totalLen = buf.readUInt32LE(8);
   const jsonLen = buf.readUInt32LE(12);
-  const meta = JSON.parse(buf.subarray(20, 20 + jsonLen).toString("utf8"));
-  for (const acc of meta.accessors || []) {
-    if (acc.type === "VEC3" && Array.isArray(acc.min) && Array.isArray(acc.max)) {
+  const chunkType = buf.readUInt32LE(16);
+  if (version !== 2 || totalLen < 20 || totalLen > buf.length || chunkType !== 0x4e4f534a || 20 + jsonLen > totalLen) {
+    throw policyError("INVALID_GLB", 400, "Malformed glTF v2 binary header or JSON chunk bounds");
+  }
+  let meta;
+  try {
+    meta = JSON.parse(buf.subarray(20, 20 + jsonLen).toString("utf8"));
+  } catch {
+    throw policyError("INVALID_GLB", 400, "Malformed JSON chunk in glTF binary");
+  }
+  if (!meta || typeof meta !== "object" || Array.isArray(meta)) {
+    throw policyError("INVALID_GLB", 400, "Invalid glTF metadata object");
+  }
+  for (const acc of Array.isArray(meta.accessors) ? meta.accessors : []) {
+    if (
+      acc &&
+      acc.type === "VEC3" &&
+      Array.isArray(acc.min) &&
+      Array.isArray(acc.max) &&
+      acc.min.length === 3 &&
+      acc.max.length === 3 &&
+      acc.min.every((v) => typeof v === "number" && Number.isFinite(v)) &&
+      acc.max.every((v) => typeof v === "number" && Number.isFinite(v))
+    ) {
       const scale = acc.componentType === 5122 && acc.normalized ? 1 / 32767 : 1;
       return {
         min: acc.min.map((v) => Number((v * scale).toFixed(4))),
@@ -455,13 +526,33 @@ function createGateway(policy) {
   let server = null;
   let baseUrl = null;
 
+  const MAX_MAP_ENTRIES = 50_000;
+  let reqCounter = 0;
+  let lastPruneMs = 0;
+
   function pruneMaps(now) {
+    reqCounter += 1;
+    // Time-gated pruning eliminates per-request O(50k) scans when saturated (Loop 3 LOW-6)
+    const periodic = (reqCounter & 255) === 0 && now - lastPruneMs >= 1_000;
+    const saturatedDue = (leaseUses.size >= MAX_MAP_ENTRIES || rateBuckets.size >= MAX_MAP_ENTRIES) && now - lastPruneMs >= 5_000;
+    if (!periodic && !saturatedDue) {
+      return;
+    }
+    lastPruneMs = now;
     for (const [jti, entry] of leaseUses.entries()) {
       if (entry.exp <= now) leaseUses.delete(jti);
     }
     for (const [bucketKey, entry] of rateBuckets.entries()) {
       if (entry.resetAt <= now) rateBuckets.delete(bucketKey);
     }
+  }
+
+  function corsHeadersFor(action, reqOrigin) {
+    if (!action || !reqOrigin) return {};
+    if (action.allowedOrigins.length === 0 || action.allowedOrigins.includes(reqOrigin)) {
+      return { "access-control-allow-origin": reqOrigin, vary: "Origin" };
+    }
+    return {};
   }
 
   function checkOrigin(action, originHeader) {
@@ -476,6 +567,9 @@ function createGateway(policy) {
     const key = `${action.name}:${subjectKey}`;
     let bucket = rateBuckets.get(key);
     if (!bucket || bucket.resetAt <= now) {
+      if (!bucket && rateBuckets.size >= MAX_MAP_ENTRIES) {
+        throw policyError("RATE_LIMITER_SATURATED", 503, "Rate limiter capacity reached");
+      }
       bucket = { count: 0, resetAt: now + action.rateLimit.windowMs };
       rateBuckets.set(key, bucket);
     }
@@ -485,8 +579,11 @@ function createGateway(policy) {
     bucket.count += 1;
   }
 
-  function verifyLeaseForAction(action, token, originHeader, now) {
+  function validateLeaseForAction(action, token, originHeader, now) {
     const claims = verifySignedToken(gatewaySecret, token);
+    if (typeof claims.jti !== "string" || claims.jti.length === 0) {
+      throw policyError("BAD_LEASE_PAYLOAD", 401, "Lease missing jti");
+    }
     if (claims.exp <= now) {
       throw policyError("LEASE_EXPIRED", 401, "Lease has expired");
     }
@@ -502,6 +599,9 @@ function createGateway(policy) {
       }
     }
     const maxUses = Math.min(action.maxUses, claims.max ?? action.maxUses);
+    if (!leaseUses.has(claims.jti) && leaseUses.size >= MAX_MAP_ENTRIES) {
+      throw policyError("REPLAY_CACHE_SATURATED", 503, "Lease replay cache capacity reached");
+    }
     const state = leaseUses.get(claims.jti) || {
       uses: 0,
       exp: Math.max(claims.exp, now + action.replayWindowMs),
@@ -509,12 +609,29 @@ function createGateway(policy) {
     if (state.uses >= maxUses) {
       throw policyError("LEASE_REPLAYED", 409, "Lease token usage limit reached");
     }
+    return { claims, state };
+  }
+
+  function consumeLeaseUse(claims, state) {
     state.uses += 1;
     leaseUses.set(claims.jti, state);
-    return claims;
   }
 
   function readJsonBody(req) {
+    if (req.body !== undefined && req.body !== null && typeof req.body === "object" && !Buffer.isBuffer(req.body)) {
+      return Promise.resolve(req.body);
+    }
+    if (Buffer.isBuffer(req.rawBody)) {
+      if (req.rawBody.length > policy.maxBodyBytes) {
+        return Promise.reject(policyError("BODY_TOO_LARGE", 413, "Request payload exceeds policy limit"));
+      }
+      const raw = req.rawBody.toString("utf8");
+      try {
+        return Promise.resolve(raw ? JSON.parse(raw) : {});
+      } catch {
+        return Promise.reject(policyError("BAD_JSON", 400, "Invalid JSON request body"));
+      }
+    }
     return new Promise((resolve, reject) => {
       const chunks = [];
       let total = 0;
@@ -549,7 +666,15 @@ function createGateway(policy) {
     });
   }
 
-  async function dispatch(req, res) {
+  function decodeActionName(encoded) {
+    try {
+      return decodeURIComponent(encoded);
+    } catch {
+      throw policyError("BAD_ACTION_ENCODING", 400, "Malformed percent-encoding in action path");
+    }
+  }
+
+  async function dispatch(req, res, { prefix = "/v1/action/" } = {}) {
     const now = Date.now();
     pruneMaps(now);
     if (!policy.enabled) {
@@ -558,10 +683,11 @@ function createGateway(policy) {
       return;
     }
 
-    const url = new URL(req.url, "http://localhost");
-    const prefix = "/v1/action/";
+    const rawUrl = req.originalUrl || req.url || "/";
+    const url = new URL(rawUrl, "http://localhost");
     if (req.method === "OPTIONS" && url.pathname.startsWith(prefix)) {
-      const optAction = policy.actions[decodeURIComponent(url.pathname.slice(prefix.length))];
+      const name = decodeActionName(url.pathname.slice(prefix.length));
+      const optAction = Object.hasOwn(policy.actions, name) ? policy.actions[name] : null;
       const reqOrigin = req.headers.origin || "";
       if (optAction && reqOrigin && (optAction.allowedOrigins.length === 0 || optAction.allowedOrigins.includes(reqOrigin))) {
         res.writeHead(204, {
@@ -584,8 +710,8 @@ function createGateway(policy) {
       return;
     }
 
-    const actionName = decodeURIComponent(url.pathname.slice(prefix.length));
-    const action = policy.actions[actionName];
+    const actionName = decodeActionName(url.pathname.slice(prefix.length));
+    const action = Object.hasOwn(policy.actions, actionName) ? policy.actions[actionName] : null;
     if (!action) {
       res.writeHead(404, { "content-type": "application/json" });
       res.end(JSON.stringify({ ok: false, code: "UNKNOWN_ACTION" }));
@@ -593,7 +719,10 @@ function createGateway(policy) {
     }
 
     // Prefer genuine browser `Origin` header; only fall back to `x-vs-origin` for non-browser callers
-    const originHeader = req.headers.origin || req.headers["x-vs-origin"] || "";
+    const browserOrigin = req.headers.origin || "";
+    const originHeader = browserOrigin || req.headers["x-vs-origin"] || "";
+    const corsHdrs = corsHeadersFor(action, browserOrigin);
+    req._vsCorsHdrs = corsHdrs;
     checkOrigin(action, originHeader);
     const body = await readJsonBody(req);
     let attestObj = body && typeof body === "object" ? body.attest ?? null : null;
@@ -604,13 +733,28 @@ function createGateway(policy) {
         throw policyError("STEALTH_ATTEST_INVALID", 403, "Invalid x-vs-attest JSON header");
       }
     }
-    verifyStealthRequest({
+    const stealthVerdict = verifyStealthRequest({
       mode: action.antiStealth,
       headers: req.headers,
       attest: attestObj,
       actionName: action.name,
       origin: originHeader,
     });
+    if (policy.onDecision) {
+      try {
+        policy.onDecision({
+          action: action.name,
+          origin: originHeader,
+          antiStealth: action.antiStealth,
+          riskScore: stealthVerdict.riskScore,
+          signals: stealthVerdict.signals,
+          blocked: false,
+          ts: now,
+        });
+      } catch {
+        // never break request handling from user telemetry hook
+      }
+    }
     let rawParamCandidate = body && typeof body === "object" && body.params !== undefined ? body.params : body;
     if (body && typeof body === "object" && body.params === undefined && Object.prototype.hasOwnProperty.call(body, "attest")) {
       const { attest: _ignoredAttest, ...restParams } = body;
@@ -619,12 +763,21 @@ function createGateway(policy) {
     const cleanParams = validateActionParams(action.params, rawParamCandidate);
 
     let claims = { sub: "anonymous", jti: "public" };
+    let pendingLease = null;
     if (action.mode !== "public-preview") {
       const auth = req.headers.authorization || "";
       const token = auth.startsWith("Bearer ") ? auth.slice(7) : "";
-      claims = verifyLeaseForAction(action, token, originHeader, now);
+      pendingLease = validateLeaseForAction(action, token, originHeader, now);
+      claims = pendingLease.claims;
     }
-    checkRate(action, claims.sub || originHeader || "anon", now);
+    // Never fall back to attacker-controlled Origin/X-Vs-Origin for rate-limit bucketing (Loop 3 HIGH-4)
+    const clientIp = String(req.socket?.remoteAddress || req.ip || "anon").replace(/^::ffff:/i, "");
+    const rateSubject = action.mode === "public-preview" ? `ip:${clientIp}` : (claims.sub || clientIp);
+    // Check rate limit BEFORE burning single-use lease jti (Loop 3 MED-11)
+    checkRate(action, rateSubject, now);
+    if (pendingLease) {
+      consumeLeaseUse(pendingLease.claims, pendingLease.state);
+    }
 
     const rawOut = await action.handler({
       params: cleanParams,
@@ -635,6 +788,7 @@ function createGateway(policy) {
 
     if (action.mode === "public-preview" && rawOut && Buffer.isBuffer(rawOut.body)) {
       res.writeHead(200, {
+        ...corsHdrs,
         "content-type": rawOut.contentType || "application/octet-stream",
         "cache-control": "public, max-age=60",
       });
@@ -666,20 +820,48 @@ function createGateway(policy) {
         ciphertext: env.ciphertext.toString("base64url"),
       };
       keyBuf.fill(0);
-      res.writeHead(200, { "content-type": "application/json", "cache-control": "no-store" });
+      res.writeHead(200, { ...corsHdrs, "content-type": "application/json", "cache-control": "no-store" });
       res.end(JSON.stringify(resp));
       return;
     }
 
     const safeData = redactResult(rawOut, action.redactFields);
-    res.writeHead(200, { "content-type": "application/json", "cache-control": "no-store" });
+    res.writeHead(200, { ...corsHdrs, "content-type": "application/json", "cache-control": "no-store" });
     res.end(JSON.stringify({ ok: true, data: safeData }));
+  }
+
+  function handleNodeRequest(req, res, opts) {
+    return dispatch(req, res, opts).catch((err) => {
+      const status = err.status || 500;
+      const code = err.code || "INTERNAL_ERROR";
+      if (policy.onDecision) {
+        try {
+          policy.onDecision({
+            action: req.originalUrl || req.url || "",
+            origin: req.headers?.origin || req.headers?.["x-vs-origin"] || "",
+            blocked: true,
+            code,
+            status,
+            ts: Date.now(),
+          });
+        } catch {}
+      }
+      if (!res.headersSent) {
+        const safeErr = status >= 500 ? "Internal server error" : err.message;
+        res.writeHead(status, { ...(req._vsCorsHdrs || {}), "content-type": "application/json" });
+        res.end(JSON.stringify({ ok: false, code, error: safeErr }));
+      }
+    });
   }
 
   return {
     get url() {
       return baseUrl;
     },
+    get policy() {
+      return policy;
+    },
+    handleNodeRequest,
     issueLease({ subject, scopes = [], origin = "", action = "", ttlMs, maxUses }) {
       const now = Date.now();
       return signPayload(gatewaySecret, {
@@ -695,12 +877,7 @@ function createGateway(policy) {
     },
     listen(port = 0, host = "127.0.0.1") {
       server = http.createServer((req, res) => {
-        dispatch(req, res).catch((err) => {
-          const status = err.status || 500;
-          const code = err.code || "INTERNAL_ERROR";
-          res.writeHead(status, { "content-type": "application/json" });
-          res.end(JSON.stringify({ ok: false, code, error: err.message }));
-        });
+        handleNodeRequest(req, res);
       });
       return new Promise((resolve, reject) => {
         server.once("error", reject);
@@ -788,6 +965,130 @@ function createClient({
   };
 }
 
+/**
+ * Express / Connect / Node `http` middleware adapter for a `createGateway(policy)` instance.
+ * Handles `/v1/action/*` requests and delegates all other routes to `next()`.
+ */
+function createNodeMiddleware(gateway, { prefix = "/v1/action/" } = {}) {
+  return function vibeslayerPolicyMiddleware(req, res, next) {
+    const rawUrl = req.originalUrl || req.url || "/";
+    if (rawUrl.startsWith(prefix)) {
+      gateway.handleNodeRequest(req, res, { prefix });
+      return;
+    }
+    if (typeof next === "function") next();
+  };
+}
+
+/**
+ * Web Fetch API adapter (`(request: Request) => Promise<Response>`) for Cloudflare Workers,
+ * Deno, Bun, and Next.js Route Handlers backed by a `createGateway(policy)` instance.
+ * Enforces `policy.maxBodyBytes` incrementally before buffering and handles null-body 204/304 statuses cleanly.
+ */
+function createFetchHandler(gateway, { prefix = "/v1/action/", getClientIp = null } = {}) {
+  const { Readable } = require("node:stream");
+  const maxBodyBytes = gateway.policy?.maxBodyBytes ?? CONFIG.DEFAULT_MAX_BODY_BYTES;
+  const NULL_BODY_STATUSES = new Set([101, 204, 205, 304]);
+
+  return async function vibeslayerFetchHandler(request) {
+    const url = new URL(request.url);
+    const headers = {};
+    request.headers.forEach((v, k) => {
+      headers[k.toLowerCase()] = v;
+    });
+
+    // Compute CORS headers for early 400/413 responses so browsers read structured errors instead of opaque TypeErrors (Loop 4 LOW-5)
+    let earlyCors = {};
+    const browserOrigin = headers.origin || "";
+    if (browserOrigin && url.pathname.startsWith(prefix)) {
+      try {
+        const actName = decodeURIComponent(url.pathname.slice(prefix.length));
+        const act = Object.hasOwn(gateway.policy.actions, actName) ? gateway.policy.actions[actName] : null;
+        if (act && (act.allowedOrigins.length === 0 || act.allowedOrigins.includes(browserOrigin))) {
+          earlyCors = { "access-control-allow-origin": browserOrigin, vary: "Origin" };
+        }
+      } catch {}
+    }
+
+    let bodyBuf = Buffer.alloc(0);
+    if (request.method !== "GET" && request.method !== "HEAD" && request.method !== "OPTIONS") {
+      if (request.body && typeof request.body.getReader === "function") {
+        const reader = request.body.getReader();
+        const parts = [];
+        let total = 0;
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            total += value.byteLength;
+            if (total > maxBodyBytes) {
+              await reader.cancel().catch(() => {});
+              return new Response(
+                JSON.stringify({ ok: false, code: "BODY_TOO_LARGE", error: "Request payload exceeds policy limit" }),
+                { status: 413, headers: { ...earlyCors, "content-type": "application/json" } }
+              );
+            }
+            parts.push(Buffer.from(value));
+          }
+        } catch {
+          return new Response(
+            JSON.stringify({ ok: false, code: "BAD_BODY", error: "Failed reading request body" }),
+            { status: 400, headers: { ...earlyCors, "content-type": "application/json" } }
+          );
+        }
+        bodyBuf = Buffer.concat(parts);
+      } else {
+        const raw = Buffer.from(await request.arrayBuffer());
+        if (raw.length > maxBodyBytes) {
+          return new Response(
+            JSON.stringify({ ok: false, code: "BODY_TOO_LARGE", error: "Request payload exceeds policy limit" }),
+            { status: 413, headers: { ...earlyCors, "content-type": "application/json" } }
+          );
+        }
+        bodyBuf = raw;
+      }
+    }
+
+    const mockReq = Readable.from(bodyBuf.length > 0 ? [bodyBuf] : []);
+    mockReq.method = request.method;
+    mockReq.url = `${url.pathname}${url.search}`;
+    mockReq.originalUrl = mockReq.url;
+    mockReq.headers = headers;
+    mockReq.ip = typeof getClientIp === "function" ? String(getClientIp(request) || "fetch-anon") : "fetch-anon";
+
+    return new Promise((resolve) => {
+      let status = 200;
+      let respHeaders = {};
+      const chunks = [];
+      const mockRes = {
+        headersSent: false,
+        writeHead(code, hdrs = {}) {
+          status = code;
+          respHeaders = { ...hdrs };
+          this.headersSent = true;
+        },
+        end(data) {
+          if (data !== undefined) {
+            chunks.push(Buffer.isBuffer(data) ? data : Buffer.from(String(data), "utf8"));
+          }
+          try {
+            const body = NULL_BODY_STATUSES.has(status) ? null : Buffer.concat(chunks);
+            resolve(new Response(body, { status, headers: respHeaders }));
+          } catch {
+            resolve(
+              new Response(JSON.stringify({ ok: false, code: "INTERNAL_ERROR" }), {
+                status: 500,
+                headers: { "content-type": "application/json" },
+              })
+            );
+          }
+        },
+      };
+      gateway.handleNodeRequest(mockReq, mockRes, { prefix });
+    });
+  };
+}
+
 module.exports = {
   CONFIG,
   definePolicy,
@@ -795,6 +1096,8 @@ module.exports = {
   buildStealthAttestation,
   verifyStealthRequest,
   createGateway,
+  createNodeMiddleware,
+  createFetchHandler,
   createClient,
   buildBoundingBoxPreviewGlb,
   sealAssetAes256Gcm,

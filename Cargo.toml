@@ -1,0 +1,61 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/vs-crypto",
+    "crates/vs-vault",
+    "crates/vs-watermark",
+    "crates/vs-3d",
+    "crates/vs-server",
+    "crates/vs-nl",
+    "vibeslayer-native-core/rust_core",
+]
+
+[workspace.package]
+version = "2.0.0-alpha.1"
+edition = "2021"
+license = "MIT"
+repository = "https://github.com/HUSMUS9999/vibe-slayer"
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+
+[workspace.lints.clippy]
+unwrap_used = "warn"
+expect_used = "warn"
+
+[workspace.dependencies]
+ring = "0.17"
+subtle = "2.6"
+zeroize = { version = "1.8", features = ["derive"] }
+thiserror = "2.0"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tokio = { version = "1.43", features = ["rt-multi-thread", "macros", "net", "sync", "time"] }
+axum = "0.8"
+tower = "0.5"
+tower-http = { version = "0.6", features = ["cors", "limit", "timeout"] }
+http = "1.2"
+bytes = "1.9"
+clap = { version = "4.5", features = ["derive", "env"] }
+gltf = "1.4"
+glam = "0.29"
+image = { version = "0.25", default-features = false, features = ["png", "jpeg", "webp"] }
+rustfft = "6.2"
+ipnet = "2.10"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+base64 = "0.22"
+hex = "0.4"
+
+vs-crypto = { version = "2.0.0-alpha.1", path = "crates/vs-crypto" }
+vs-vault = { version = "2.0.0-alpha.1", path = "crates/vs-vault" }
+vs-watermark = { version = "2.0.0-alpha.1", path = "crates/vs-watermark" }
+vs-3d = { version = "2.0.0-alpha.1", path = "crates/vs-3d" }
+vs-server = { version = "2.0.0-alpha.1", path = "crates/vs-server" }
+vs-nl = { version = "2.0.0-alpha.1", path = "crates/vs-nl" }
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+strip = true

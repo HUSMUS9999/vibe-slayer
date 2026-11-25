@@ -1,10 +1,26 @@
 [package]
 name = "vibeslayer-core"
-version = "1.0.0-beta.3"
-edition = "2021"
-description = "Standalone Rust CLI and RFC 9112 runtime server for cryptographic web, 3D stream, ELF64, and VSPK3 asset protection"
-license = "MIT"
-repository = "https://github.com/HUSMUS9999/vibe-slayer"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Thin modular CLI and library facade built on audited vs-crypto, vs-vault, vs-watermark, vs-3d, vs-server, and vs-nl crates"
+
+[features]
+default = ["cli"]
+cli = [
+    "dep:vs-server",
+    "dep:vs-nl",
+    "dep:clap",
+    "dep:axum",
+    "dep:tokio",
+    "dep:tracing",
+    "dep:tracing-subscriber",
+    "dep:ipnet",
+    "dep:image",
+    "dep:hex",
+    "dep:zeroize",
+]
 
 [lib]
 name = "vibeslayer_core"
@@ -13,9 +29,27 @@ path = "src/lib.rs"
 [[bin]]
 name = "vibe-slayer"
 path = "src/main.rs"
+required-features = ["cli"]
 
-[profile.release]
-opt-level = 3
-lto = true
-codegen-units = 1
-strip = true
+[dependencies]
+vs-crypto.workspace = true
+vs-vault.workspace = true
+vs-watermark.workspace = true
+vs-3d.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+
+vs-server = { workspace = true, optional = true }
+vs-nl = { workspace = true, optional = true }
+clap = { workspace = true, optional = true }
+axum = { workspace = true, optional = true }
+tokio = { workspace = true, optional = true }
+tracing = { workspace = true, optional = true }
+tracing-subscriber = { workspace = true, optional = true }
+ipnet = { workspace = true, optional = true }
+image = { workspace = true, optional = true }
+hex = { workspace = true, optional = true }
+zeroize = { workspace = true, optional = true }
+
+[lints]
+workspace = true

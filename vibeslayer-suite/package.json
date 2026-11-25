@@ -1,6 +1,6 @@
 {
   "name": "vibeslayer-suite",
-  "version": "0.8.0-beta.2",
+  "version": "2.0.0-alpha.1",
   "license": "MIT",
   "repository": "https://github.com/HUSMUS9999/vibe-slayer",
   "description": "End-to-end multi-platform client-download + runtime-bound protection suite (Web, WASM, 3D Spatial, Native ELF64/PE64, Desktop Enclave, Mobile JNI, Data/AI Weights)",
@@ -9,9 +9,33 @@
     "vibeslayer-auto": "./cli/vs.js"
   },
   "main": "./src/index.js",
+  "exports": {
+    ".": "./src/index.js",
+    "./authority": "./src/core/authority.js",
+    "./auto": "./src/auto.js",
+    "./web": "./src/products/web.js",
+    "./web-client": "./src/client/web-client.js",
+    "./wasm": "./src/products/wasm.js",
+    "./wasm-client": "./src/client/wasm-client.js",
+    "./spatial3d": "./src/products/spatial3d.js",
+    "./spatial3d-client": "./src/client/spatial3d-client.js",
+    "./native": "./src/products/native.js",
+    "./desktop": "./src/products/desktop.js",
+    "./mobile": "./src/products/mobile.js",
+    "./data-ai": "./src/products/dataAi.js",
+    "./data-ai-client": "./src/client/data-ai-client.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "cli/",
+    "src/",
+    "native_src/",
+    "scripts/",
+    "README.md"
+  ],
   "scripts": {
     "build:native": "node scripts/build-native.js",
-    "test": "node --test test/suite.test.js test/auto.test.js",
+    "test": "node --test test/suite.test.js",
     "coverage": "node --test --experimental-test-coverage test/suite.test.js",
     "bench": "node bench/benchmark-all-vs-bla.js"
   },

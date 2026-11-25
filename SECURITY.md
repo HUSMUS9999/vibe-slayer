@@ -2,26 +2,25 @@
 
 ## Cryptographic & Audit Status
 
-Vibe-Slayer (`v1.0.0-beta.3`) is pre-1.0 software. Before deploying it in high-assurance or regulated environments, note the following:
+Vibe-Slayer (`v2.0.0-alpha.1`) is modular Rust (`#![forbid(unsafe_code)]` across all 7 workspace crates) paired with wire-compatible C99, Go, Python, and zero-dependency Node.js SDKs.
 
-- **Custom, unaudited implementations:** The standalone Rust binary (`vibeslayer-native-core/rust_core`) implements its own P-256 ECDH, AES-256-GCM, ChaCha20-Poly1305, HKDF-SHA256, SHA-256, and RFC 9112 HTTP/1.1 parser with zero external crates. None of these implementations have undergone an independent third-party cryptographic audit.
-- **Constant-time status:** Hardware AES-NI and PCLMULQDQ are used for AES block rounds and GHASH on supported `x86_64` CPUs, while AES key expansion (`aes256_expand_key`) and the software AES fallback use `AES_SBOX` lookup tables, and P-256 scalar multiplication (`web_runtime.rs`) contains secret-dependent table indexing and branches. Do not assume side-channel constant-time guarantees against local co-resident cache-timing adversaries.
-- **Experimental subcommands:** The `homo-keygen`, `homo-encrypt`, `homo-eval`, and `homo-decrypt` subcommands implement a small-parameter (`N=256`) Ring-LWE BFV prototype for experimentation only and must not be used to protect production data.
+- **Audited cryptographic primitives:** All Rust crates (`vs-crypto`, `vs-vault`, `vs-watermark`, `vs-3d`, `vs-server`, `vibeslayer-core`) delegate AES-256-GCM, ChaCha20-Poly1305, P-256 ECDH, HKDF-SHA256, HMAC-SHA256, SHA-256, and CSPRNG exclusively to [`ring`](https://github.com/briansmith/ring) (BoringSSL constant-time assembly). No custom/DIY elliptic-curve, block-cipher, or HTTP/1.1 parser code remains in the Rust workspace.
+- **Memory safety & hygiene:** Workspace-level `#![forbid(unsafe_code)]` is enforced on every Rust crate, `cargo clippy --workspace --all-targets -- -D warnings` passes cleanly, secret keys are wrapped in `Zeroizing` / `SecretKey32` with `Drop` zeroization, and atomic `0600` sibling temporary staging (`mkstemp` + `fchmod(0600)` on POSIX; `CreateFileA` + `MoveFileExA` on Windows; RAII `TempFileGuard` in Rust) ensures failed unseals never truncate existing files or leak partial plaintext.
+- **Async HTTP/1.1 & HTTP/2 server:** `vs-server` runs on `tokio`, `hyper`, `axum`, and `tower-http` with per-route body caps (`16 KiB` JSON / `4 MiB` forensics), 20s request timeouts, bounded render/forensics semaphores (`503` backpressure), decompression-bomb limits (`2048×2048` / `32 MiB`), fail-closed scoped bearer grants (`stream:3d`, `web:lease`, `forensics:trace`) with `jti` replay tracking, and full multi-header `X-Forwarded-For` trusted-proxy CIDR resolution.
+- **Independent external audit status:** While Vibe-Slayer relies on audited cryptographic primitives (`ring`, Node.js OpenSSL, Go `x/crypto`, Python `cryptography`) and passed multi-round internal adversarial reviews, the higher-level protocol glue (`VSPK3 v2 STREAM`, `.vsweb v2`, `VSR2`, `vs-server`) has **not** yet undergone a formal third-party audit. Evaluate accordingly before regulated or high-assurance production deployment.
 
 ## Threat Boundaries (In Scope vs. Out of Scope)
 
 ### In Scope
-- Cryptographic or protocol flaws in `.vsweb` ECDH P-256 leases, `VSPK2`/`VSPK3`/`VSRA` AEAD authentication, or single-use HMAC ticket verification
-- HTTP request smuggling or parser differentials in `vibe-slayer serve` / `serve-3d`
-- Server-side information disclosure (e.g., serving unencrypted source assets, raw `.glb` meshes, or master key files)
-- Memory safety bugs or crashes in the Rust binary or C99 SDK (`libvibeslayer.so`)
+- Cryptographic or protocol flaws in `VSPK3 v2 STREAM` (`66,656 B` atomic lookahead, CMT-4 header/chunk commitments, chunk ordering/truncation), `.vsweb v2` HMAC-authenticated bundles & ECDH P-256 pubkey-bound leases, `VSR2` metadata-authenticated AI weight chunks, or bearer grant / `jti` replay verification
+- Authentication, authorization, CORS, CSP, or decompression-bomb/DoS flaws in `vs-server` (`3d` / `web`) or `vibeslayer-policy-kit`
+- Path-normalization bypasses, header-smuggling, or memory-safety bugs in the Rust workspace, C99 SDK (`libvibeslayer.so`), Go SDK, or JS/Python companions
 
 ### Out of Scope (Known Architectural Limits)
-- **Live V8/browser RAM dumps by an authorized custom Chromium build (Tier 4b):** Any JavaScript executed on a client controlled by an attacker can be read from V8 RAM along with in-session `rtKey`. Keep true secrets server-side with `vibeslayer-policy-kit` (`server-only`) or use `serve-3d --mode stream`.
-- **Unkeyed `VS_ATTEST_V1` spoofing:** `VS_ATTEST_V1` is an unkeyed SHA-256 probe digest, not proof of client possession. Pair with `--auth-hmac-key` or `--auth-secret` for authenticated sessions.
-- **Root / kernel debugging of wrapped ELF64 binaries:** Userspace wrappers (`memfd_create`, `memfd_secret`, `PR_SET_DUMPABLE`) cannot resist a privileged kernel or root `ptrace` adversary; `--standalone` embeds an obfuscated self-derived key for tamper deterrence only.
-- **Decoy VM stripping (`--js-bloat-kb`):** Dead-code chaff can be removed by AST dead-code eliminators once decrypted.
+- **Live V8/browser RAM dumps on attacker-controlled clients:** Any JavaScript or decrypted asset executed inside a browser fully controlled by an attacker can be read from process memory. Keep true secrets and proprietary geometry strictly server-side via `vs-server` (`serve-3d`) or `vibeslayer-policy-kit` (`server-only`).
+- **Physical screen capture of rendered pixels:** Server-side 3D pixel streaming prevents geometry/UV/shader extraction (`0` vertices sent), and `vs-watermark` embeds a blind 64-bit payload + 32-bit keyed HMAC-SHA256 watermark resilient to JPEG Q70, 20% cropping, and 85% downscaling for leak attribution, but cannot physically prevent a human from photographing their monitor.
+- **Root / kernel debugging of local CLI key material:** Userspace `0600` key files and memory zeroization cannot defend against a privileged root/kernel adversary with `ptrace` or physical RAM access on the host running `vibe-slayer`.
 
 ## Reporting a Vulnerability
 
-Please report suspected security issues via GitHub Security Advisories on [`HUSMUS9999/vibe-slayer`](https://github.com/HUSMUS9999/vibe-slayer/security/advisories/new). Include reproduction steps, affected component/version, and impact.
+Please report suspected security issues via GitHub Security Advisories on [`HUSMUS9999/vibe-slayer`](https://github.com/HUSMUS9999/vibe-slayer/security/advisories/new). Include reproduction steps, affected crate/package version, and concrete impact.

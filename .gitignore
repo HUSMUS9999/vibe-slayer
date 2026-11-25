@@ -1,7 +1,9 @@
 # Compiled binaries & build artifacts (rebuilt via `make -C vibeslayer-native-core all`)
 /vibe-slayer
+/target/
 vibeslayer-native-core/bin/
 vibeslayer-native-core/rust_core/target/
+*.vstmp
 vibeslayer-suite/dist_bin/
 node_modules/
 __pycache__/

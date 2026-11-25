@@ -5,13 +5,19 @@
 #include "../../vibeslayer-suite/native_src/vs_crypto_core.h"
 
 int main(int argc, char **argv) {
-    int use_vspk3 = 0;
+    int mode = 0; /* 0 = vspk2, 1 = vspk3 v1, 2 = vspk3 v2 stream file */
     int arg_off = 0;
-    if (argc == 7 && strcmp(argv[1], "--vspk3") == 0) {
-        use_vspk3 = 1;
+    if (argc == 8 && strcmp(argv[1], "--vspk3-v2") == 0) {
+        mode = 2;
+        arg_off = 1;
+    } else if (argc == 7 && strcmp(argv[1], "--vspk3") == 0) {
+        mode = 1;
         arg_off = 1;
     } else if (argc != 6) {
-        fprintf(stderr, "Usage: test_c_sdk [--vspk3] <masterKeyHex> <domain> <assetId> <context> <vspkPath>\n");
+        fprintf(stderr, "Usage:\n"
+                        "  test_c_sdk <masterKeyHex> <domain> <assetId> <context> <vspk2Path>\n"
+                        "  test_c_sdk --vspk3 <masterKeyHex> <domain> <assetId> <context> <vspk3Path>\n"
+                        "  test_c_sdk --vspk3-v2 <masterKeyHex> <domain> <assetId> <context> <inPath> <outPath>\n");
         return 1;
     }
     vs_harden_process();
@@ -20,6 +26,23 @@ int main(int argc, char **argv) {
     if (vs_hex_decode(argv[1 + arg_off], mk, 32) != 32) {
         vs_secure_zero(mk, sizeof(mk));
         return 1;
+    }
+
+    if (mode == 2) {
+        int64_t plain_len = vs_unseal_vspk3_v2_chacha20_file(
+            mk,
+            argv[2 + arg_off],
+            argv[3 + arg_off],
+            argv[4 + arg_off],
+            argv[5 + arg_off],
+            argv[6 + arg_off]
+        );
+        vs_secure_zero(mk, sizeof(mk));
+        if (plain_len < 0) {
+            return 2;
+        }
+        printf("%lld\n", (long long)plain_len);
+        return 0;
     }
 
     FILE *f = fopen(argv[5 + arg_off], "rb");
@@ -55,7 +78,7 @@ int main(int argc, char **argv) {
     fclose(f);
 
     int plain_len;
-    if (use_vspk3) {
+    if (mode == 1) {
         plain_len = vs_unseal_vspk3(
             mk, argv[2 + arg_off], argv[3 + arg_off], argv[4 + arg_off],
             in_buf, (size_t)sz, out_buf, (size_t)sz

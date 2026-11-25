@@ -1,11 +1,22 @@
 {
   "name": "vibeslayer-policy-kit",
-  "version": "0.6.0-beta.1",
+  "version": "2.0.0-alpha.1",
   "license": "MIT",
   "repository": "https://github.com/HUSMUS9999/vibe-slayer",
-  "description": "Source-configured action policy gateway, releasable GLB preview builder, and AES-256-GCM lease seal",
+  "description": "Source-configured action policy gateway, observe/balanced/strict risk scoring, Node/Fetch adapters, releasable GLB preview builder, and AES-256-GCM lease seal",
   "main": "./src/index.js",
   "types": "./src/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.d.ts",
+      "default": "./src/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "src/",
+    "README.md"
+  ],
   "scripts": {
     "test": "node --test test/policy-kit.test.js",
     "coverage": "node --test --experimental-test-coverage test/policy-kit.test.js",

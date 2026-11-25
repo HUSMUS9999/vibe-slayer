@@ -1212,3 +1212,166 @@ test("13. Tier-4 Web Component antiStealth denies CloakBrowser invariants & enfo
   });
   assert.equal(unsealed.toString("utf8"), "export class PricingCard extends HTMLElement {}");
 });
+
+test("14. v2 Data/AI: safetensors header & BF16 zero-corruption, O(1) sealSingleChunkForGrant, and modular subpath exports", () => {
+  const dataAiMod = require("../src/products/dataAi.js");
+  const { createLeaseAuthority: createAuthority, defineSuitePolicy } = require("../src/core/authority.js");
+  const masterKey = crypto.randomBytes(32);
+  const { publicKey, privateKey } = crypto.generateKeyPairSync("ed25519", {
+    publicKeyEncoding: { type: "spki", format: "pem" },
+    privateKeyEncoding: { type: "pkcs8", format: "pem" },
+  });
+  const policy = defineSuitePolicy({
+    enabled: true,
+    masterKey,
+    signingPrivateKeyPem: privateKey,
+    signingPublicKeyPem: publicKey,
+    actions: {
+      "ai.chunk": {
+        product: "data-ai",
+        requiredScopes: ["ai:weights"],
+        watermark: true,
+        params: { layer: { type: "int", min: 0, max: 64 } },
+      },
+    },
+  });
+  const authority = createAuthority(policy);
+
+  // Construct a real .safetensors binary with 1 BF16 tensor (2048 bytes) + 1 F32 tensor (8192 bytes)
+  const bf16Bytes = Buffer.alloc(2048);
+  for (let i = 0; i < bf16Bytes.length; i++) bf16Bytes[i] = (i * 13 + 7) & 0xff;
+  const f32Arr = new Float32Array(2048);
+  for (let i = 0; i < f32Arr.length; i++) f32Arr[i] = Math.sin(i * 0.01);
+  const f32Bytes = Buffer.from(f32Arr.buffer);
+
+  const headerObj = {
+    __metadata__: { format: "pt" },
+    "blk.0.bf16": { dtype: "BF16", shape: [1024], data_offsets: [0, bf16Bytes.length] },
+    "blk.0.f32": { dtype: "F32", shape: [2048], data_offsets: [bf16Bytes.length, bf16Bytes.length + f32Bytes.length] },
+  };
+  const headerJson = Buffer.from(JSON.stringify(headerObj), "utf8");
+  const headerLenBuf = Buffer.alloc(8);
+  headerLenBuf.writeBigUInt64LE(BigInt(headerJson.length), 0);
+  const safetensorsBuf = Buffer.concat([headerLenBuf, headerJson, bf16Bytes, f32Bytes]);
+
+  const packed = dataAiMod.packRandomAccessWeights({
+    authority,
+    tensorId: "llama-layer0.safetensors",
+    plainBytes: safetensorsBuf,
+    chunkBytes: 16384,
+  });
+  assert.equal(packed.safetensorsLayout.isSafetensors, true);
+  assert.equal(packed.safetensorsLayout.f32Ranges.length, 1);
+
+  const grant = dataAiMod.issueChunkLease({
+    authority,
+    action: "ai.chunk",
+    params: { layer: 0 },
+    subject: "customer-42",
+    scopes: ["ai:weights"],
+    tensorId: "llama-layer0.safetensors",
+    chunkIndex: 0,
+    safetensorsLayout: packed.safetensorsLayout,
+  });
+
+  // O(1) single-chunk sealing produces a compact VSR1 blob (38 + chunkLen bytes), NOT a full-tensor clone!
+  const sealedSingle = dataAiMod.sealSingleChunkForGrant({
+    authority,
+    vspkRaBytes: packed.vspkRaBytes,
+    grant,
+  });
+  assert.equal(sealedSingle.subarray(0, 4).toString("ascii"), "VSR1");
+  assert.equal(sealedSingle.length, 38 + safetensorsBuf.length);
+
+  const restored = dataAiMod.unsealSingleChunkBytesClient({ sealedChunk: sealedSingle, grant });
+  const dataStart = 8 + headerJson.length;
+  // .safetensors header (8B + JSON) MUST be bit-for-bit intact!
+  assert.deepEqual(restored.subarray(0, dataStart), safetensorsBuf.subarray(0, dataStart));
+  // BF16 tensor bytes MUST be bit-for-bit intact (zero corruption)!
+  assert.deepEqual(
+    restored.subarray(dataStart, dataStart + bf16Bytes.length),
+    bf16Bytes
+  );
+  // CRIT-08 & HIGH-18: layout-aware safetensors extraction identifies exact tenant and rejects unwatermarked buffer!
+  const traced = dataAiMod.extractTensorWatermark({
+    authority,
+    tensorId: "llama-layer0.safetensors",
+    chunkIndex: 0,
+    baseBytes: safetensorsBuf,
+    leakedBytes: restored,
+    chunkBytes: 16384,
+    candidateWatermarkIds: ["0000000000000000", grant.watermarkIdHex, "ffffffffffffffff"],
+  });
+  assert.equal(traced.detected, true);
+  assert.equal(traced.matchedWatermarkIdHex, grant.watermarkIdHex);
+  assert.ok(traced.bitMatchRatio >= 0.99);
+
+  const unwatermarkedTrace = dataAiMod.extractTensorWatermark({
+    authority,
+    tensorId: "llama-layer0.safetensors",
+    chunkIndex: 0,
+    baseBytes: safetensorsBuf,
+    leakedBytes: safetensorsBuf,
+    chunkBytes: 16384,
+    candidateWatermarkIds: ["0000000000000000", grant.watermarkIdHex],
+  });
+  assert.equal(unwatermarkedTrace.detected, false);
+  assert.equal(unwatermarkedTrace.matchedWatermarkIdHex, null);
+  // F32 tensor bytes MUST carry subtle watermark (max delta <= 3e-6, non-zero diff)
+  const outF32 = new Float32Array(
+    restored.buffer,
+    restored.byteOffset + dataStart + bf16Bytes.length,
+    f32Arr.length
+  );
+  let changed = 0;
+  let maxDelta = 0;
+  for (let i = 0; i < f32Arr.length; i++) {
+    const d = Math.abs(outF32[i] - f32Arr[i]);
+    if (d > 0) changed++;
+    if (d > maxDelta) maxDelta = d;
+  }
+  assert.ok(changed >= 512, `expected F32 watermark chips embedded, got ${changed}`);
+  assert.ok(maxDelta < 5e-6, `watermark perturbation too large: ${maxDelta}`);
+
+  // Loop 3 CRIT-1 regression: tampering VSR2 metaBuf (e.g. stripping f32Ranges to []) MUST fail AEAD!
+  const idLen = packed.vspkRaBytes.readUInt32LE(12);
+  const oldMetaLen = packed.vspkRaBytes.readUInt32LE(18);
+  const fakeMeta = Buffer.from('{"f32Ranges":[]}', "utf8");
+  const tamperedV2 = Buffer.concat([
+    packed.vspkRaBytes.subarray(0, 18),
+    Buffer.alloc(4),
+    packed.vspkRaBytes.subarray(22, 22 + idLen),
+    fakeMeta,
+    packed.vspkRaBytes.subarray(22 + idLen + oldMetaLen),
+  ]);
+  tamperedV2.writeUInt32LE(fakeMeta.length, 18);
+  assert.throws(
+    () =>
+      dataAiMod.sealSingleChunkForGrant({
+        authority,
+        vspkRaBytes: tamperedV2,
+        grant,
+      }),
+    /unable to authenticate|Unsupported state/i
+  );
+
+  // Loop 4 MED-7 regression: short leakedBytes must throw VSRA_TOO_SMALL instead of reading pooled slab memory
+  assert.throws(
+    () =>
+      dataAiMod.extractTensorWatermark({
+        authority,
+        tensorId: "llama-layer0.safetensors",
+        chunkIndex: 0,
+        baseBytes: safetensorsBuf,
+        leakedBytes: Buffer.from("short"),
+        chunkBytes: 16384,
+        candidateWatermarkIds: [grant.watermarkIdHex],
+      }),
+    /VSRA_TOO_SMALL/
+  );
+
+  // Verify package.json subpath exports exist
+  const pkg = require("../package.json");
+  assert.equal(pkg.exports["./data-ai"], "./src/products/dataAi.js");
+  assert.equal(pkg.exports["./authority"], "./src/core/authority.js");
+});

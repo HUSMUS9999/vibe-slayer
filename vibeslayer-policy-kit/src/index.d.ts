@@ -1,5 +1,7 @@
+import type { IncomingMessage, ServerResponse } from "node:http";
+
 export type ActionMode = "public-preview" | "server-only" | "client-sealed";
-export type AntiStealthMode = "off" | "balanced" | "strict";
+export type AntiStealthMode = "off" | "observe" | "balanced" | "strict";
 
 export interface StealthTelemetry {
   webdriver?: boolean;
@@ -18,6 +20,25 @@ export interface StealthAttestation {
   f: number;
   p: string;
   d: string;
+}
+
+export interface StealthVerdict {
+  mode: AntiStealthMode;
+  riskScore: number;
+  signals: string[];
+  blocked: boolean;
+}
+
+export interface PolicyDecisionEvent {
+  action: string;
+  origin: string;
+  antiStealth?: AntiStealthMode;
+  riskScore?: number;
+  signals?: string[];
+  blocked: boolean;
+  code?: string;
+  status?: number;
+  ts: number;
 }
 
 export type ParamRule =
@@ -52,7 +73,24 @@ export interface PolicyConfig {
   signingSecret: Buffer | string;
   defaultLeaseTtlMs?: number;
   maxBodyBytes?: number;
+  onDecision?: (event: PolicyDecisionEvent) => void;
   actions: Record<string, ActionDefinition>;
+}
+
+export interface PolicyGateway {
+  readonly url: string | null;
+  readonly policy: Readonly<PolicyConfig>;
+  handleNodeRequest(req: IncomingMessage, res: ServerResponse, opts?: { prefix?: string }): Promise<void>;
+  issueLease(opts: {
+    subject: string;
+    scopes?: string[];
+    origin?: string;
+    action?: string;
+    ttlMs?: number;
+    maxUses?: number;
+  }): string;
+  listen(port?: number, host?: string): Promise<string>;
+  close(): Promise<void>;
 }
 
 export declare const CONFIG: Readonly<Record<string, unknown>>;
@@ -67,7 +105,7 @@ export declare function verifyStealthRequest(opts: {
   attest?: StealthAttestation | null;
   actionName?: string;
   origin?: string;
-}): void;
+}): StealthVerdict;
 export declare function buildBoundingBoxPreviewGlb(
   sourceGlbBytes: Buffer | Uint8Array,
   opts?: { generator?: string; nodeName?: string }
@@ -82,19 +120,15 @@ export declare function unsealAssetAes256Gcm(
   keyBytes: Buffer | Uint8Array,
   expectedAadText?: string
 ): Buffer;
-export declare function createGateway(policy: Readonly<PolicyConfig>): {
-  readonly url: string | null;
-  issueLease(opts: {
-    subject: string;
-    scopes?: string[];
-    origin?: string;
-    action?: string;
-    ttlMs?: number;
-    maxUses?: number;
-  }): string;
-  listen(port?: number, host?: string): Promise<string>;
-  close(): Promise<void>;
-};
+export declare function createGateway(policy: Readonly<PolicyConfig>): PolicyGateway;
+export declare function createNodeMiddleware(
+  gateway: PolicyGateway,
+  opts?: { prefix?: string }
+): (req: IncomingMessage & { originalUrl?: string }, res: ServerResponse, next?: () => void) => void;
+export declare function createFetchHandler(
+  gateway: PolicyGateway,
+  opts?: { prefix?: string }
+): (request: Request) => Promise<Response>;
 export declare function buildStealthAttestation(opts?: {
   mode?: AntiStealthMode;
   actionName?: string;

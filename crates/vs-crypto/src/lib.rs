@@ -374,12 +374,21 @@ impl SessionAead {
 
     /// Seal plaintext with the next strictly monotonic nonce. Returns `(nonce12, ct_with_tag)`.
     pub fn seal_next(&self, aad: &[u8], plaintext: &[u8]) -> Result<([u8; 12], Vec<u8>), CryptoError> {
-        let seq = self
-            .counter
-            .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |cur| {
-                (cur < MAX_SESSION_NONCE_COUNTER).then_some(cur + 1)
-            })
-            .map_err(|_| CryptoError::NonceExhausted)?;
+        let mut cur = self.counter.load(Ordering::Relaxed);
+        let seq = loop {
+            if cur >= MAX_SESSION_NONCE_COUNTER {
+                return Err(CryptoError::NonceExhausted);
+            }
+            match self.counter.compare_exchange_weak(
+                cur,
+                cur + 1,
+                Ordering::Relaxed,
+                Ordering::Relaxed,
+            ) {
+                Ok(prev) => break prev,
+                Err(next) => cur = next,
+            }
+        };
         let mut nonce = [0u8; 12];
         nonce[..8].copy_from_slice(&self.nonce_prefix);
         nonce[8..].copy_from_slice(&(seq as u32).to_be_bytes());

@@ -38,7 +38,7 @@ const MAX_WEB_BUNDLE_BYTES: u64 = 128 * 1024 * 1024;
 #[command(
     name = "vibe-slayer",
     version = VERSION,
-    about = "Modular audited 3D pixel-streaming shield, VSPK3 v2 STREAM vault, blind forensic watermarker, and hardened web bundler"
+    about = "Anti-vibe-RE CLI: AEAD vaults, sealed web/3D servers, and blind leak tracing"
 )]
 struct Cli {
     #[command(subcommand)]

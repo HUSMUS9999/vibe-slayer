@@ -4,7 +4,7 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
-description = "Thin modular CLI and library facade built on audited vs-crypto, vs-vault, vs-watermark, vs-3d, vs-server, and vs-nl crates"
+description = "Thin modular CLI and library facade built on vs-crypto, vs-vault, vs-watermark, vs-3d, vs-server, and vs-nl crates"
 
 [features]
 default = ["cli"]

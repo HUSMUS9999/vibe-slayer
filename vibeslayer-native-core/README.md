@@ -1,38 +1,34 @@
-# `vibeslayer-native-core` (`v1.0.0-beta.3`)
+# `vibeslayer-native-core` (`v2.0.0-alpha.1`)
 
-[← Root README](../README.md) · [CLI & Configuration](../docs/cli-and-configuration.md) · [Native Binaries & SDKs](../docs/native-binaries-and-sdks.md)
+[← Root README](../README.md) · [Native Binaries & SDKs](../docs/native-binaries-and-sdks.md) · [Security Policy](../SECURITY.md)
 
-Standalone **Rust** CLI (`vibe-slayer`), RFC 9112 live HTTP/1.1 runtime servers (`serve` & `serve-3d`), and wire-compatible **C99**, Go, and Python `VSPK2`/`VSPK3` SDKs — built with zero external Rust crates.
+Thin feature-gated **Rust** CLI (`vibe-slayer`) built on the `#![forbid(unsafe_code)]` workspace crates (`vs-crypto`, `vs-vault`, `vs-watermark`, `vs-3d`, `vs-server`, `vs-nl`), paired with wire-compatible **Go**, **C99** (`libvibeslayer.so`), and **Python** `VSPK3 v2 STREAM` SDKs.
 
-## Compiled Native Artifacts (`bin/`)
+## Artifacts (`bin/` & `target/release/`)
 
-- `bin/vibe-slayer` (and top-level `../vibe-slayer`, created by build) — Standalone Linux `ELF64` Rust CLI & live website/3D runtime server
-- `bin/vibe-slayer.exe` — Optional cross-compiled Windows `PE32+` x64 standalone Rust CLI (`make windows`)
-- `bin/vibeslayer` & `bin/vibeslayer.exe` — Backward-compatible CLI aliases
-- `bin/libvibeslayer.so` & `bin/vibeslayer.dll` — C99 shared library (`VSPK2` & `VSPK3`) for C/C++ and Python `ctypes`
+- `target/release/vibe-slayer` (and `bin/vibe-slayer` via `Makefile`) — Standalone CLI facade (`demo`, `vault`, `website`, `serve`, `token`, `scan`, `serve-3d`, `trace-3d`, `explain`, `ask`, plus legacy `pack`/`unseal`/`pack-v3`/`unseal-v3`).
+- `bin/libvibeslayer.so` (or `vibeslayer.dll` on Windows) — C99 shared library (`VSPK2`, `VSPK3 v1`, and `VSPK3 v2 STREAM` ChaCha20-Poly1305 unseal) consumed by C/C++ and Python `ctypes`.
 
-## Core Engines & Protocols
+## Polyglot `VSPK3 v2 STREAM` Wire Parity
 
-- **Unified Parameterization (`rust_core/src/params.rs`)**: `--preset fast | balanced | paranoid`, `init-config`, `--config vibeslayer.config.json`, environment variable fallbacks, and strict fail-closed validation.
-- **Live Website & Web Components Runtime (`rust_core/src/web_runtime.rs`)**: `website` & `serve` using pure-Rust AES-NI `AES-256-GCM`, Solinas `ECDH P-256`, `HKDF-SHA256`, single-use HMAC tickets, RFC 9112 proxy compliance (`Transfer-Encoding: chunked`, `Expect: 100-continue`, `CL+TE` smuggling rejection), `--harden-js` (runtime-keyed strings + optional decoy VM + inline Web Component stealth guard), `--anti-cdp`, and `--anti-stealth`.
-- **3D Shield & Encrypted Stream (`rust_core/src/shield_viewer.rs`, `raster_stream.rs`)**: `shield-3d`, `serve-3d` (`--mode stream` zero-geometry AES-256-GCM pixel stream & `--mode gpu` WebGL2 encrypted-vertex viewer), `trace-shield-3d`, and `trace-stream-frame`.
-- **Auto-Protection & Native Crypto (`rust_core/src/auto_cli.rs`, `v090_elite.rs`, `v100_zero_overhead.rs`)**: `VSPK2`, headerless whole-file key-committing `VSPK3`, cooked `VS3D`, 64-bit BPSK `WM64`, and freestanding `-nostdlib` static-PIE `ELF64` wrappers (`wrap-elf` via sealed `memfd_create` + `execveat` with Intel CET) and `<= 4 KiB` `memfd_secret` data vaults (`--vault`).
-
-All four native SDKs (`rust_core`, `sdk_c`, `sdk_go`, `sdk_python`) share the exact binary **`VSPK2`** and **`VSPK3`** wire formats (`HKDF-SHA256` + `RFC 8439 ChaCha20-Poly1305`).
+| SDK | Location | Supported `VSPK3 v2 STREAM` Operations | Crypto Backend |
+| :--- | :--- | :--- | :--- |
+| **Rust (`vs-vault`)** | `crates/vs-vault`, `rust_core/` | Seal, Unseal, Inspect, `O(1)` Random Access (`AES-256-GCM` & `ChaCha20-Poly1305`) | `ring` (BoringSSL) |
+| **Go** | `sdk_go/vibeslayer.go` | Seal & Unseal (`AES-256-GCM`) + legacy `VSPK2`/`VSPK3 v1` | Go stdlib `crypto/aes` + `crypto/cipher` (v2); in-tree ChaCha20-Poly1305 (legacy v1) |
+| **C99** | `sdk_c/vibeslayer.c` | Unseal (`ChaCha20-Poly1305`) + legacy `VSPK2`/`VSPK3 v1` | In-tree C99 (`vs_crypto_core.h`) |
+| **Python** | `sdk_python/vibeslayer.py` | Unseal (`ChaCha20-Poly1305`) + legacy `VSPK2`/`VSPK3 v1` | `ctypes` wrapper around `libvibeslayer.so` |
 
 ## Build & Verify
 
 ```bash
-# Build native host Linux binary + C99 SDK
+# Build native CLI + C99 shared library
 make -C vibeslayer-native-core all
 
-# Optional: cross-compile Windows PE32+ artifacts (requires x86_64-w64-mingw32-gcc + x86_64-pc-windows-gnu)
-make -C vibeslayer-native-core windows
+# Workspace lint & Rust unit/integration tests
+cargo clippy --workspace --all-targets -- -D warnings
+cargo test --workspace --release
 
-# Run Rust unit tests & polyglot/security suites
-cargo test --manifest-path vibeslayer-native-core/rust_core/Cargo.toml --release
-make -C vibeslayer-native-core test
-
-# Optional: run loopback throughput microbenchmarks
-make -C vibeslayer-native-core bench
+# Polyglot VSPK3 v2 STREAM parity tests (Rust <-> Go, Rust <-> C99 <-> Python)
+python3 vibeslayer-native-core/tests/test_v2_polyglot.py
+(cd vibeslayer-native-core/sdk_go && go test -v ./...)
 ```

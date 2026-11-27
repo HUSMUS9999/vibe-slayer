@@ -1,6 +1,6 @@
 [package]
 name = "vs-server"
-description = "Async Tokio/Axum multi-SKU zero-geometry 3D streaming & hardened .vsweb v2 asset server"
+description = "Async Tokio/Axum hardened .vsweb v2 asset server and optional multi-SKU zero-geometry 3D streaming module"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

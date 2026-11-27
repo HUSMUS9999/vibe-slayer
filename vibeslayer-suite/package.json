@@ -2,8 +2,23 @@
   "name": "vibeslayer-suite",
   "version": "2.0.0-alpha.1",
   "license": "MIT",
-  "repository": "https://github.com/HUSMUS9999/vibe-slayer",
-  "description": "End-to-end multi-platform client-download + runtime-bound protection suite (Web, WASM, 3D Spatial, Native ELF64/PE64, Desktop Enclave, Mobile JNI, Data/AI Weights)",
+  "repository": "https://github.com/HusX99/vibe-slayer",
+  "homepage": "https://husx99.github.io/vibe-slayer/",
+  "description": "Multi-asset anti-reverse-engineering protection suite against AI reversing agents (Web, WASM, Data/AI Weights, 3D Spatial, plus Native/Desktop/Mobile reference kits)",
+  "keywords": [
+    "anti-reverse-engineering",
+    "asset-protection",
+    "software-protection",
+    "ai-security",
+    "webassembly",
+    "safetensors",
+    "aes-gcm",
+    "aead",
+    "webcrypto",
+    "anti-tamper",
+    "anti-scraping",
+    "zero-dependency"
+  ],
   "bin": {
     "vs": "./cli/vs.js",
     "vibeslayer-auto": "./cli/vs.js"

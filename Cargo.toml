@@ -14,7 +14,7 @@ members = [
 version = "2.0.0-alpha.1"
 edition = "2021"
 license = "MIT"
-repository = "https://github.com/HUSMUS9999/vibe-slayer"
+repository = "https://github.com/HusX99/vibe-slayer"
 
 [workspace.lints.rust]
 unsafe_code = "forbid"

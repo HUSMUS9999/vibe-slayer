@@ -37,7 +37,7 @@ Empirical side-by-side probing of live **CloakBrowser 146** versus unmodified **
 ### Why Flag Tweaks Alone Do Not Evade Detection
 - Passing `--fingerprint-platform=linux` eliminates invariants #5 and #6, yet CloakBrowser still scores **`8 / 11`** (Canvas2D + WebGL + Audio + DOMRect) — exceeding both `strict` (`>= 2`) and `balanced` (`>= 4`).
 - In `--mode stream` (where WebGL is intentionally absent from the client loader), CloakBrowser still scores **`8 / 8`** (or `6 / 6` on Linux spoof), exceeding both thresholds.
-- Disabling the noise engine completely leaves a standard headless/automation profile unless the adversary builds a custom zero-noise browser from scratch (Tier 4b). For multi-engine coverage across 19 live browsers (including Camoufox, Patchright, Rebrowser, SeleniumBase UC, and Nodriver), see **[VeilBreak](https://github.com/HUSMUS9999/veilbreak)**.
+- Disabling the noise engine completely leaves a standard headless/automation profile unless the adversary builds a custom zero-noise browser from scratch (Tier 4b). For multi-engine coverage across 19 live browsers (including Camoufox, Patchright, Rebrowser, SeleniumBase UC, and Nodriver), see **[VeilBreak](https://github.com/HusX99/veilbreak)**.
 
 ---
 

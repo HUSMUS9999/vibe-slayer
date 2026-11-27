@@ -2,8 +2,20 @@
   "name": "vibeslayer-policy-kit",
   "version": "2.0.0-alpha.1",
   "license": "MIT",
-  "repository": "https://github.com/HUSMUS9999/vibe-slayer",
-  "description": "Source-configured action policy gateway, observe/balanced/strict risk scoring, Node/Fetch adapters, releasable GLB preview builder, and AES-256-GCM lease seal",
+  "repository": "https://github.com/HusX99/vibe-slayer",
+  "homepage": "https://husx99.github.io/vibe-slayer/",
+  "description": "Source-configured anti-reverse-engineering API policy gateway with server-only execution, strict param schemas, field redaction, opt-in antiStealth, and AES-256-GCM lease sealing",
+  "keywords": [
+    "anti-reverse-engineering",
+    "api-security",
+    "policy-gateway",
+    "ai-security",
+    "anti-scraping",
+    "anti-bot",
+    "aes-gcm",
+    "typescript",
+    "zero-dependency"
+  ],
   "main": "./src/index.js",
   "types": "./src/index.d.ts",
   "exports": {

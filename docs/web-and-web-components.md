@@ -8,7 +8,7 @@ Vibe-Slayer protects pre-bundled static sites, Single-Page Applications (React, 
 
 ---
 
-## 1. Runtime Architecture (Zero Node.js)
+## 1. Runtime Architecture (Standalone Rust Server)
 
 ```mermaid
 sequenceDiagram
@@ -27,10 +27,10 @@ sequenceDiagram
 ```
 
 ### What Scrapers & Offline Rippers Receive
-- `GET /` returns only a minimal bootstrap HTML shell (`0` bytes of your HTML, CSS, JS, or Custom Elements) plus a short-lived, single-use, IP-bound HMAC ticket (`vs-ticket`).
+- `GET /` returns only a minimal bootstrap HTML shell without your HTML, CSS, JS, or Custom Elements, plus a short-lived, single-use, IP-bound HMAC ticket (`vs-ticket`).
 - `GET /__vibeslayer/vibeslayer.web.json` fails closed with `403 MANIFEST_SEALED_IN_LEASE`.
 - All assets live on disk as `AES-256-GCM` `.vsweb` blobs (`iv(12) || ciphertext || tag(16)`) with AAD `VSWEB1|<rel_path>`.
-- `vibeslayer.web.json` on disk contains **zero** `siteKey`, **zero** `masterKey`, and **zero** `rtKeyHex`.
+- `vibeslayer.web.json` on disk never stores `siteKey`, `masterKey`, or `rtKeyHex`.
 
 ---
 
@@ -83,7 +83,7 @@ Before generating an ECDH keypair or calling `/__vibeslayer/lease`, the loader e
    - **OS platform vs. mandatory system font lie** (`Win32`/`Windows` missing all of `Segoe UI`, `Tahoma`, `Consolas`, `Calibri`, or `MacIntel`/`macOS` missing all of `Helvetica Neue`, `Geneva`, `Menlo`, `+2` if 0/N)
    - **Spoofed D3D11 NVIDIA/RTX renderer** missing `KHR_parallel_shader_compile` with `< 30` extensions (`+1`)
 
-If the score meets or exceeds the threshold (`balanced`: `>= 4`, `strict`: `>= 2`), the loader halts with **`Access denied: STEALTH_BROWSER_DENIED`** — **zero lease requests are sent and zero `.vsweb` components are decrypted**.
+If the score meets or exceeds the threshold (`balanced`: `>= 4`, `strict`: `>= 2`), the loader halts with **`Access denied: STEALTH_BROWSER_DENIED`** before any lease request is sent or any `.vsweb` component is decrypted.
 
 ### Layer 2: Server-Side Header & Telemetry Gate (`vibe-slayer serve`)
 In `--anti-stealth strict` (and `balanced` for explicit header contradictions):
@@ -95,7 +95,7 @@ In `--anti-stealth strict` (and `balanced` for explicit header contradictions):
   - Score `>= threshold` → `403 STEALTH_BROWSER_DENIED`
   - `HeadlessChrome` / `Playwright` / `Puppeteer` / `PhantomJS` UA (`strict`) → `403 AUTOMATION_DENIED`
   - OS header contradictions (e.g. `User-Agent: Linux` paired with `Sec-CH-UA-Platform: "Windows"` or `platform: "Win32"`) → `403 STEALTH_BROWSER_DENIED`
-- **Honest Protocol Boundary:** `VS_ATTEST_V1` is an unkeyed integrity digest (not hardware attestation) that stops unmodified browsers and stock-loader drivers. Because any unauthenticated HTTP client that implements the public ECDH handshake can submit a synthetic score, always pair `--anti-stealth` with `--auth-hmac-key` or `--auth-secret` when assets must not be anonymously leasable.
+- **Protocol boundary:** `VS_ATTEST_V1` is an unkeyed integrity digest (not hardware attestation) that stops unmodified browsers and stock-loader drivers. Because any unauthenticated HTTP client that implements the public ECDH handshake can submit a synthetic score, always pair `--anti-stealth` with `--auth-hmac-key` or `--auth-secret` when assets must not be anonymously leasable.
 
 ### Layer 3: Inline Self-Defense Guard Inside Every Hardened Web Component (`.js` / `.mjs`)
 Even if a Tier-4 attacker bypasses the loader or manually extracts a single decrypted `.mjs`/`.js` Web Component file:
@@ -108,7 +108,7 @@ Even if a Tier-4 attacker bypasses the loader or manually extracts a single decr
 
 ## 4. Programmatic Web Component Protection in Node.js SDKs
 
-Both companion Node.js (`>=20`, zero npm dependencies) packages also expose `antiStealth: "off" | "balanced" | "strict"` for custom gateways, server verification, and client test harnesses.
+Both companion Node.js (`>=20`) packages also expose `antiStealth: "off" | "balanced" | "strict"` for custom gateways, server verification, and client test harnesses.
 
 ### A. `vibeslayer-suite` (`webProduct` & `src/client/web-client.js`)
 
@@ -183,8 +183,8 @@ Empirically verified against a live multi-component Web Components app (`<vs-pri
 
 | Target | CloakBrowser 146 (`chromium-146.0.7680.177.5`) | Unmodified Google Chrome 158 |
 | :--- | :--- | :--- |
-| **`--preset paranoid` (`--anti-stealth strict`)** | **Denied (`STEALTH_BROWSER_DENIED`)** · `0` leases · `0/3` Custom Elements defined | **Allowed (`0` false positives)** · `3/3` Shadow DOM Custom Elements rendered |
-| **`--preset balanced --harden-js --anti-stealth balanced`** | **Denied (`STEALTH_BROWSER_DENIED`)** · `0` leases · `0/3` Custom Elements defined | **Allowed (`0` false positives)** · `3/3` Shadow DOM Custom Elements rendered |
+| **`--preset paranoid` (`--anti-stealth strict`)** | **Denied (`STEALTH_BROWSER_DENIED`)** · no leases issued · no Custom Elements defined | **Allowed (no false positives)** · `3/3` Shadow DOM Custom Elements rendered |
+| **`--preset balanced --harden-js --anti-stealth balanced`** | **Denied (`STEALTH_BROWSER_DENIED`)** · no leases issued · no Custom Elements defined | **Allowed (no false positives)** · `3/3` Shadow DOM Custom Elements rendered |
 | **Extracted Standalone Hardened `pricing-card.mjs` (with `rtKey` pre-injected)** | **Denied (`CAUGHT_ERR:STEALTH_BROWSER_DENIED`)** · `customElements.get('vs-pricing-card') === undefined` | **Allowed (`IMPORTED_OK:true`)** · `<vs-pricing-card>` Shadow DOM rendered |
 
 ---

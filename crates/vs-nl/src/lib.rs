@@ -1,6 +1,6 @@
-//! `vs-nl`: Compact, modular, 100% offline deterministic natural-language command builder.
+//! `vs-nl`: Compact, modular, offline deterministic natural-language command builder.
 //!
-//! Loop 3 hardened (`#![forbid(unsafe_code)]`):
+//! Design (`#![forbid(unsafe_code)]`):
 //! - Tokenizes quoted paths (`"./my model.glb"`) without letting mid-word apostrophes (`let's`)
 //!   break quoting, rejects hyphen-prefixed flag injection tokens (`--in=...`), and POSIX-quotes
 //!   display/next commands safely against shell metacharacters.
@@ -121,7 +121,7 @@ fn extract_port(words: &[String], default_port: u16) -> u16 {
     default_port
 }
 
-/// Translate plain English into an auditable Vibe-Slayer v2 CLI plan (100% local & deterministic).
+/// Translate plain English into an auditable Vibe-Slayer v2 CLI plan (offline and deterministic).
 pub fn translate(input: &str) -> Result<NaturalPlan, String> {
     let trimmed = input.trim();
     if trimmed.is_empty() {
@@ -342,7 +342,7 @@ pub fn translate(input: &str) -> Result<NaturalPlan, String> {
         });
     }
 
-    // 9. Zero-geometry 3D pixel streaming server
+    // 9. Server-side 3D pixel streaming
     if is_streaming_3d
         || has_word(&prose_words, &["model"])
         || paths.iter().any(|p| p.to_ascii_lowercase().ends_with(".glb"))
@@ -354,7 +354,7 @@ pub fn translate(input: &str) -> Result<NaturalPlan, String> {
         return Ok(NaturalPlan {
             input: trimmed.into(),
             intent: "serve-3d".into(),
-            goal: format!("Serve zero-geometry encrypted 3D stream for {target} on port {port}"),
+            goal: format!("Stream server-rendered encrypted 3D frames for {target} on port {port}"),
             argv: vec![
                 "serve-3d".into(),
                 target,
@@ -362,7 +362,7 @@ pub fn translate(input: &str) -> Result<NaturalPlan, String> {
                 format!("127.0.0.1:{port}"),
             ],
             reasons: vec![
-                "Async Tokio/Axum multi-SKU zero-geometry PBR server (0 vertices/UVs/WebGL sent)".into(),
+                "Async Tokio/Axum multi-SKU PBR stream server (geometry, UVs, and shaders stay on the server)".into(),
                 "Includes crop/scale-resilient 32-bit-MAC watermark + spherical anti-3DGS view budget".into(),
             ],
             next_command: Some(format!("Open http://127.0.0.1:{port}/v1/models")),

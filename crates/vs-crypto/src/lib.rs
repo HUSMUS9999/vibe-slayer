@@ -4,7 +4,7 @@
 //! ChaCha20-Poly1305, SHA-256, HMAC-SHA256, HKDF-SHA256, and CSPRNG), `subtle`, and `zeroize`.
 //!
 //! Key security guarantees:
-//! - Zero hand-rolled cryptographic primitives or lookup-table S-boxes.
+//! - Delegates all cryptographic primitives to `ring` (no in-tree cipher or curve code).
 //! - Ephemeral per-session keys + strictly monotonic 64-bit counter nonces (`SessionAead`)
 //!   eliminating NIST SP 800-38D random-IV exhaustion under static keys.
 //! - Constant-time tag & token comparisons with unified opaque authentication errors.

@@ -1,6 +1,6 @@
 [package]
 name = "vs-nl"
-description = "Compact deterministic offline natural-language intent mapper for Vibe-Slayer CLI (zero LLM, zero network)"
+description = "Compact deterministic offline natural-language intent mapper for Vibe-Slayer CLI"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

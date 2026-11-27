@@ -125,12 +125,12 @@
     <circle cx="771" cy="114" r="3" fill="#10B981"/>
     <text class="sans node-ttl" x="781" y="118">Closure-Scoped WebCrypto</text>
     <text class="mono mono-hi" x="768" y="137">CryptoKey { extractable: false }</text>
-    <text class="sans line-md" x="768" y="154">0 global window key manifests</text>
+    <text class="sans line-md" x="768" y="154">No global window key manifests</text>
     <text class="sans line-md" x="768" y="171">Per-token cache + transient retry</text>
     <text class="mono mono-lo" x="768" y="191">/__vibeslayer/loader.js</text>
   </g>
 
-  <!-- ==================== BAND 2: ZERO-GEOMETRY 3D STREAMING & FORENSICS ==================== -->
+  <!-- ==================== BAND 2: SERVER-SIDE 3D STREAMING & FORENSICS ==================== -->
   <g id="band-3d">
     <rect x="36" y="214" width="240" height="136" rx="4" fill="#0C111B" stroke="#1E293B" stroke-width="1"/>
     <text x="48" y="234"><tspan class="mono node-cmd">vs-3d</tspan><tspan class="sans node-ttl"> · Optional 3D Module</tspan></text>
@@ -166,12 +166,12 @@
     <rect x="631" y="314" width="104" height="20" rx="3" fill="#05070B" stroke="#1E3A52" stroke-width="0.9"/>
     <text class="mono wire-enc-lbl" x="683" y="326.8">32-bit MAC WM</text>
 
-    <text class="mono micro-hdr" x="758" y="227">ZERO-GEOMETRY CLIENT &amp; TRACE</text>
+    <text class="mono micro-hdr" x="758" y="227">3D STREAM CLIENT &amp; TRACE</text>
 
     <rect x="756" y="238" width="248" height="52" rx="4" fill="#0C111B" stroke="#1E293B" stroke-width="1"/>
     <circle cx="771" cy="252.5" r="3" fill="#10B981"/>
     <text class="sans node-ttl-sm" x="781" y="256">&lt;vs-3d-viewer&gt; Canvas2D</text>
-    <text class="sans line-hi" x="768" y="271">0 vertices · 0 UVs · 0 innerHTML XSS</text>
+    <text class="sans line-hi" x="768" y="271">Pixels only · DOM-safe Canvas2D</text>
     <text class="sans line-lo" x="768" y="283.5">SSR poster · wheel/key · 401 recovery</text>
 
     <rect x="756" y="298" width="248" height="52" rx="4" fill="#0C111B" stroke="#1E293B" stroke-width="1"/>
@@ -221,7 +221,7 @@
 
     <rect x="756" y="426" width="248" height="56" rx="4" fill="#0C111B" stroke="#1E293B" stroke-width="1"/>
     <circle cx="771" cy="442" r="3" fill="#38BDF8"/>
-    <text class="sans node-ttl-sm" x="781" y="445.5">Modular Node Suite (0 Deps)</text>
+    <text class="sans node-ttl-sm" x="781" y="445.5">Modular Node.js Suite</text>
     <text class="sans line-hi" x="768" y="461.5">Subpath exports (7 asset targets)</text>
     <text class="sans line-lo" x="768" y="475">AI VSR2 · WASM · ELF64 · Enclave</text>
   </g>
@@ -251,7 +251,7 @@
     <rect x="756" y="494" width="248" height="68" rx="4" fill="#0C111B" stroke="#1E293B" stroke-width="1"/>
     <circle cx="771" cy="509.5" r="3" fill="#10B981"/>
     <text class="sans node-ttl-sm" x="781" y="513">Redacted API &amp; Edge Clients</text>
-    <text class="sans line-hi" x="768" y="531">0 secret fields · coarse previews</text>
+    <text class="sans line-hi" x="768" y="531">Redacted fields · coarse previews</text>
     <text class="sans line-lo" x="768" y="551">Pairs with ProxySnare &amp; VeilBreak</text>
   </g>
 
@@ -265,10 +265,10 @@
     <text class="mono leg-txt" x="178" y="604">Encrypted wire / lease</text>
 
     <line x1="328" y1="601" x2="343" y2="601" stroke="#10B981" stroke-width="1.35" marker-end="url(#arr-iso)"/>
-    <text class="mono leg-txt" x="350" y="604">Isolated stream / zero-plaintext</text>
+    <text class="mono leg-txt" x="350" y="604">Isolated stream / no raw asset</text>
 
-    <line x1="538" y1="595.25" x2="538" y2="606.75" stroke="#38BDF8" stroke-width="1.2" stroke-dasharray="2.5 2"/>
-    <text class="mono leg-txt" x="546" y="604">0 plaintext / 0 master keys cross</text>
+    <line x1="528" y1="595.25" x2="528" y2="606.75" stroke="#38BDF8" stroke-width="1.2" stroke-dasharray="2.5 2"/>
+    <text class="mono leg-txt" x="536" y="604">No plaintext or master keys cross</text>
 
     <text class="mono leg-end" x="1016" y="604">Rust · #![forbid(unsafe_code)]</text>
   </g>

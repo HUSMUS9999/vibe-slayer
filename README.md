@@ -26,7 +26,7 @@
 
 **Vibe-Slayer** defends proprietary software assets against **"vibe reverse engineering"**: automated pipelines and coding agents (such as **Reverse Engineer Anything / REA**, Playwright/CDP rippers, Frida instrumentation, and LLM decompilers) that bypass static obfuscation in minutes by dumping bundles offline, hooking runtime APIs (`fetch`, `WebAssembly.instantiate`, `gl.bufferData`), and reconstructing logic automatically.
 
-Vibe-Slayer eliminates plaintext at rest with AEAD encryption, keeps true secrets and 3D geometry off the client via server-side execution and streaming (where Frida and CDP cannot reach), and embeds blind forensic watermarks for post-leak attribution. Built as a `#![forbid(unsafe_code)]` Rust CLI and crate workspace with Go, C99, Python, and zero-dependency Node.js (`>= 20`) SDKs.
+Vibe-Slayer eliminates plaintext at rest with AEAD encryption, keeps true secrets and 3D geometry off the client via server-side execution and streaming (where Frida and CDP cannot reach), and embeds blind forensic watermarks for post-leak attribution. Built as a `#![forbid(unsafe_code)]` Rust CLI and crate workspace with Go, C99, Python, and Node.js (`>= 20`) SDKs.
 
 ## Protected Assets
 
@@ -35,9 +35,9 @@ Vibe-Slayer eliminates plaintext at rest with AEAD encryption, keeps true secret
 | **Web Apps & JS Bundles** | Offline scraping, static JS dumps, headless browser ripping | Encrypted `.vsweb v2` bundles, fail-closed `web:lease` grants, pubkey-bound ECDH P-256 non-extractable WebCrypto keys; opt-in heuristic `antiStealth` in JS packages |
 | **AI Weights & Datasets** | Direct `.safetensors`/`.onnx`/`.gguf` theft and redistribution | 64-bit `VSPK3 v2 STREAM` AEAD + CMT-4 vaults (`O(1)` RAM, >4 GiB) and `VSR2` chunked weights (`F32` watermarking; `BF16`/quantized pass through unmodified) |
 | **APIs & Proprietary Logic** | Automated script replay, client-side formula extraction, schema probing | Source-configured `definePolicy()` gateway (`server-only`, `public-preview`, `client-sealed`), strict param schemas, field redaction, replay and `antiStealth` guards |
-| **WebAssembly (`.wasm`)** | Static `\0asm` scraping and offline `wasm2wat`/LLM decompilation | Encrypted `.vspk` delivery (zero plaintext `\0asm` bytes at rest or on wire) with ephemeral WebCrypto unsealing and native ABI speed |
+| **WebAssembly (`.wasm`)** | Static `\0asm` scraping and offline `wasm2wat`/LLM decompilation | Encrypted `.vspk` delivery (no plaintext `\0asm` bytes at rest or on the wire) with ephemeral WebCrypto unsealing and native ABI speed |
 | **Native, Desktop & Mobile (Reference Kits)** | Offline `.rodata`/ASAR/APK extraction, renderer DevTools inspection, naive repackaging | Linux PIE + Intel CET C template (`<= 4 KiB` `.vsblob` bound to live `PF_X` SHA-256, `PR_SET_DUMPABLE=0`); `Ed25519` `.vsasar` C enclave sidecar; C `.so` bound to caller-supplied APK cert for NDK/JNI |
-| **Interactive 3D Models (Optional Module)** | WebGL buffer hooks, Transform Feedback dumps, 3DGS/photogrammetry sweeps | Zero-geometry server-side PBR pixel streaming (`0` vertices, UVs, or shaders sent), anti-3DGS camera defense, 192-bin view budget, blind 64-bit MAC watermarking |
+| **Interactive 3D Models (Optional Module)** | WebGL buffer hooks, Transform Feedback dumps, 3DGS/photogrammetry sweeps | Server-side PBR pixel streaming (mesh geometry, UVs, and shaders stay on the server), anti-3DGS camera defense, 192-bin view budget, blind 64-bit MAC watermarking |
 
 ## Quickstart
 
@@ -84,20 +84,20 @@ openssl rand -hex 32 > auth.key  && chmod 600 auth.key
   --origin my-app --scope web:lease --ttl 300
 ./vibe-slayer scan ./my-repo
 
-# 4) Optional 3D asset module: zero-geometry pixel streaming + blind forensic leak attribution
+# 4) Optional 3D asset module: server-side pixel streaming + blind forensic leak attribution
 ./vibe-slayer serve-3d ./models-dir --bind 127.0.0.1:8790 \
   --key-file ./wm.key --auth-key-file ./auth.key --allow-origin https://app.example.com
 ./vibe-slayer trace-3d --image ./leaked.png --key-file ./wm.key
 ```
 
-You can also translate plain English locally via `vs-nl` (deterministic parser, no LLM or network):
+You can also translate plain English locally via `vs-nl` (deterministic offline parser):
 
 ```bash
 ./vibe-slayer explain "protect website ./dist"
 ./vibe-slayer ask --dry-run "seal ./weights.safetensors"
 ```
 
-### 3. Node.js API Policy Gateway (`vibeslayer-policy-kit`, 0 npm deps)
+### 3. Node.js API Policy Gateway (`vibeslayer-policy-kit`)
 
 Keep proprietary business logic strictly server-side so browser/CDP/Frida hooks never see secret formulas or raw fields:
 
@@ -138,8 +138,8 @@ const gateway = createGateway(policy); // Mount with Node http/Express or Web Fe
 | [`crates/vs-3d`](crates/vs-3d/Cargo.toml) | Optional 3D Module | glTF 2.0 PBR renderer, anti-3DGS camera perturbation, 192-bin spherical view budget, bounded multi-SKU catalog. |
 | [`crates/vs-nl`](crates/vs-nl/Cargo.toml) | Offline NL Translator | Deterministic flag-injection-safe English-to-CLI compiler with POSIX-safe command quoting. |
 | [`vibeslayer-native-core/`](vibeslayer-native-core/README.md) | CLI + Polyglot SDKs | `vibe-slayer` CLI facade + wire-compatible **Go** (AES-256-GCM seal/unseal) and **C99/Python** (`libvibeslayer.so` ChaCha20-Poly1305 unseal) SDKs. |
-| [`vibeslayer-suite/`](vibeslayer-suite/README.md) | Multi-Asset JS Suite | Node.js `>= 20` (`0` npm deps), subpath exports: Web, WASM, `VSR2` AI weights, 3D Spatial, plus Native/Desktop/Mobile reference kits. |
-| [`vibeslayer-policy-kit/`](vibeslayer-policy-kit/README.md) | API Policy Gateway | Node.js `>= 20` (`0` npm deps), single-entry export + `.d.ts` types: `server-only`, `public-preview`, `client-sealed`, Express/Fetch adapters, opt-in `antiStealth`. |
+| [`vibeslayer-suite/`](vibeslayer-suite/README.md) | Multi-Asset JS Suite | Node.js `>= 20` (built-in modules only) subpath exports: Web, WASM, `VSR2` AI weights, 3D Spatial, plus Native/Desktop/Mobile reference kits. |
+| [`vibeslayer-policy-kit/`](vibeslayer-policy-kit/README.md) | API Policy Gateway | Node.js `>= 20` (built-in modules only) policy gateway + `.d.ts` types: `server-only`, `public-preview`, `client-sealed`, Express/Fetch adapters, opt-in `antiStealth`. |
 
 ## Performance
 
@@ -155,9 +155,9 @@ Suite verification (`cargo test --workspace --release`): blind watermark torture
 
 ## Security Model & Limits
 
-- **What Vibe-Slayer stops:** Eliminates offline scraping and static reversing of sealed web bundles, WASM, AI weights, and 3D assets (`0` plaintext bytes or embedded keys at rest); keeps proprietary logic and sensitive geometry off the client via `vibeslayer-policy-kit` (`server-only`) and `serve-3d`; enforces fail-closed scoped bearer grants (`web:lease`, `stream:3d`, `forensics:trace`); and adds opt-in heuristic detection (`antiStealth`) in `vibeslayer-policy-kit` and `vibeslayer-suite/web` for headless/CDP markers and synthetic-noise anti-detect browsers (defense-in-depth; bypassable if an attacker modifies browser JS/telemetry).
+- **What Vibe-Slayer stops:** Eliminates offline scraping and static reversing of sealed web bundles, WASM, AI weights, and 3D assets (payloads stay encrypted at rest with no embedded keys); keeps proprietary logic and sensitive geometry off the client via `vibeslayer-policy-kit` (`server-only`) and `serve-3d`; enforces fail-closed scoped bearer grants (`web:lease`, `stream:3d`, `forensics:trace`); and adds opt-in heuristic detection (`antiStealth`) in `vibeslayer-policy-kit` and `vibeslayer-suite/web` for headless/CDP markers and synthetic-noise anti-detect browsers (defense-in-depth; bypassable if an attacker modifies browser JS/telemetry).
 - **Primitive audit scope vs. pre-1.0 protocol glue ([SECURITY.md](SECURITY.md)):** All Rust crates run on audited `ring` (BoringSSL constant-time assembly) with `#![forbid(unsafe_code)]`, Node.js packages use Node's OpenSSL/WebCrypto, and Go `VSPK3 v2` uses Go stdlib `crypto/aes` + `crypto/cipher`. The C99 SDK (`libvibeslayer.so`), the Python `ctypes` wrapper, `vibeslayer-suite/native_src/` C templates (`vs_crypto_core.h`), and Go's legacy `VSPK2`/`VSPK3 v1` ChaCha20-Poly1305 path use custom in-tree implementations. None of the higher-level wire formats (`VSPK3 v2`, `.vsweb v2`, `VSR2`) or servers have undergone a third-party external audit.
-- **Irreducible live-client boundary:** Any JavaScript, WASM module, or unsealed buffer executing inside a browser or host fully controlled by an attacker (custom Chromium inspecting V8 RAM, dynamic `WebAssembly.Module` hooks, or root/Frida instrumentation during an authorized session) can be captured at runtime. Keep true secrets strictly server-side (`server-only` actions or zero-geometry streaming), and use per-session forensic watermarking (`vs-watermark`, `VSR2` F32 tensor watermarks) for post-leak attribution.
+- **Irreducible live-client boundary:** Any JavaScript, WASM module, or unsealed buffer executing inside a browser or host fully controlled by an attacker (custom Chromium inspecting V8 RAM, dynamic `WebAssembly.Module` hooks, or root/Frida instrumentation during an authorized session) can be captured at runtime. Keep true secrets strictly server-side (`server-only` actions or server-side 3D pixel streaming), and use per-session forensic watermarking (`vs-watermark`, `VSR2` F32 tensor watermarks) for post-leak attribution.
 - **`.vsweb v2` scope:** Built for authenticated app/asset bundles (not public SEO/SSR pages). `/__vibeslayer/lease` fails closed (`401`) unless valid `web:lease` bearer tokens are supplied or `--allow-anonymous-public-site` is explicitly enabled.
 
 ## Documentation
@@ -168,7 +168,7 @@ Suite verification (`cargo test --workspace --release`): blind watermark torture
 - [Beginner's Guide](docs/getting-started-beginners.md): Local `ask` and `explain` recipes.
 - [Websites & Web Components](docs/web-and-web-components.md): `.vsweb` runtime and WebCrypto leases.
 - [Native Binaries & SDKs](docs/native-binaries-and-sdks.md): Rust, C99, Go, and Python SDK integration.
-- [3D Shield & Stream](docs/3d-shield-and-stream.md): Optional zero-geometry 3D streaming and blind forensic tracing.
+- [3D Shield & Stream](docs/3d-shield-and-stream.md): Optional server-side 3D pixel streaming and blind forensic tracing.
 - [Deployment & Proxies](docs/deployment-and-security-proxies.md): Reverse-proxy deployment and `--trust-proxy` CIDR rules (`serve-3d`).
 
 ## Development & Verification
@@ -187,8 +187,8 @@ npm test --prefix vibeslayer-suite
 
 ## Related Projects
 
-- [ProxySnare](https://github.com/HusX99/proxysnare): Zero-dependency middleware, reverse proxy, browser guard, and Python verifier for detecting and blocking intercepting HTTP proxies and repeaters.
-- [VeilBreak](https://github.com/HusX99/veilbreak): Zero-dependency browser integrity SDK, `<veil-break>` Shadow DOM Web Component, reverse-proxy middleware, and Python verifier for anti-detect browsers across Chromium and Gecko.
+- [ProxySnare](https://github.com/HusX99/proxysnare): Middleware, reverse proxy, browser guard, and Python verifier for detecting and blocking intercepting HTTP proxies and repeaters.
+- [VeilBreak](https://github.com/HusX99/veilbreak): Browser integrity SDK, `<veil-break>` Shadow DOM Web Component, reverse-proxy middleware, and Python verifier for anti-detect browsers across Chromium and Gecko.
 
 ## License
 

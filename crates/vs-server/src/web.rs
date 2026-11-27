@@ -1,17 +1,17 @@
 //! Hardened async web asset delivery (`vs-server::web`):
 //!
-//! Loop 2 security & scalability guarantees:
-//! - **Fail-closed `/__vibeslayer/lease` authentication (`CRIT-01`):** requires `auth_signing_key`
+//! Security and concurrency design:
+//! - **Fail-closed `/__vibeslayer/lease` authentication:** requires `auth_signing_key`
 //!   with `expected_aud = site_id`, `"web:lease"` scope, optional `asset_id` filtering, and `jti`
 //!   replay rejection unless explicit `allow_anonymous_public_site: true` opt-in is set.
-//! - **No `window.__VS_MANIFEST__` global key leak:** `loader.js` keeps non-extractable
+//! - **Closure-scoped key handling:** `loader.js` keeps non-extractable
 //!   `CryptoKey` handles closure-scoped inside an IIFE with full ECDH `clientPub || serverPub`
-//!   HKDF transcript binding (`LOW-05`).
-//! - **Authenticated `.vsweb` v2 bundle (`MED-02`):** HMAC-SHA256 over serialized manifest verified
+//!   HKDF transcript binding (never exposes key material on `window`).
+//! - **Authenticated `.vsweb` v2 bundle:** HMAC-SHA256 over serialized manifest verified
 //!   in constant time in `WebBundle::from_bytes`, plus length-prefixed AAD binding `site_id`,
 //!   `path`, and `content_type` (defeats MIME spoofing & `|` delimiter injection).
-//! - **O(1) `HashSet` lease filtering + `16 KiB` body cap + `TimeoutLayer` (`HIGH-06`)** and
-//!   zero-copy `Bytes` asset storage (`LOW-07`).
+//! - **O(1) `HashSet` lease filtering, `16 KiB` body cap, `TimeoutLayer`, and ref-counted `Bytes`
+//!   asset storage.**
 
 use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex};

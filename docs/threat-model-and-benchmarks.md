@@ -2,7 +2,7 @@
 
 [← Back to README](../README.md) · [Web & Web Components](./web-and-web-components.md) · [3D Shield & Stream](./3d-shield-and-stream.md)
 
-Security tools fail engineers when they exaggerate what client-side protection can achieve. This document provides an **empirical, scoped assessment** of what Vibe-Slayer blocks across adversary tiers, how it detects and denies anti-detect browsers (tested live against **CloakBrowser 146**), and where operational caveats and irreducible browser-physics boundaries begin.
+This document outlines what Vibe-Slayer blocks across adversary tiers, how its anti-stealth checks behave against **CloakBrowser 146** and unmodified desktop browsers, and where client-side protection boundaries end.
 
 ---
 
@@ -10,11 +10,11 @@ Security tools fail engineers when they exaggerate what client-side protection c
 
 | Adversary Tier | Website & Web Components (`--preset paranoid`) | 3D Shield `--mode gpu` (`balanced`) | 3D Encrypted Stream `--mode stream` (`paranoid`) |
 | :--- | :--- | :--- | :--- |
-| **Tier 1: Scrapers, `curl`, `wget`, HTTrack, Static Rippers** | **Blocked (`0` plaintext served).** `GET /` returns an empty shell; assets are `AES-256-GCM` `.vsweb` blobs; manifest fails closed (`403`). | **Blocked.** No `.glb`/`.gltf` served; geometry & textures encrypted at rest. | **Blocked.** Zero 3D files or WebGL endpoints exist. |
-| **Tier 2: Standard Headless Automation (Playwright, Puppeteer, Selenium)** | **Blocked before lease.** `--anti-cdp` catches `navigator.webdriver` & `Runtime.enable`; `strict` blocks `HeadlessChrome` UAs server-side (`0` leases, `0` components mounted). | **Blocked before init.** `AUTOMATION_DENIED`, `0` WebGL buffers uploaded. | **Blocked before init.** `AUTOMATION_DENIED`, `0` frames rendered. |
-| **Tier 3: AI-Agent Reversers (CDP `Fetch.enable` / `Debugger.getScriptSource` + Transform Feedback)** | **Blocked by default (`Runtime.enable` caught).** If an attacker patches out `Runtime.enable` and dumps `blob:` JS from V8, dumped `.mjs`/`.js` is **offline-dead** (`VS_RUNTIME_KEY_REQUIRED` without live ECDH `rtKey`), carries the optional `96 KB` (`--js-bloat-kb`) decoy VM per file, and runs the inline `STEALTH_BROWSER_DENIED` guard. | **Normal-oracle killed; server-baked watermark survives.** Multi-view Transform Feedback / GPU capture can still approximate unwatermarked geometry up to Kruppa/SVD error (~1–6% Frobenius residual), while ripped world positions remain **64/64-bit forensically traceable** (`trace-shield-3d`) even if shader uniforms are stripped. | **Geometry withheld (`0` mesh/UV/shader/WebGL sent).** `0` vertices, `0` indices, `0` UVs, `0` textures, `0` shaders, `0` WebGL contexts. Wire frames are `AES-256-GCM` ciphertext; every decoded JPEG carries a visually invisible **`0.999`-confidence 64-bit buyer watermark**. |
-| **Tier 4a: Fingerprint-Noise Anti-Detect Browsers (CloakBrowser 146)** | **Denied (`STEALTH_BROWSER_DENIED`).** Blocked at loader (score `11/11`, `0` leases), server attestation (`403`), and inline inside extracted hardened Web Component `.mjs` files before `customElements.define(...)`. | **Denied (`STEALTH_BROWSER_DENIED`, `0` handshakes).** | **Denied (`STEALTH_BROWSER_DENIED`, `0` handshakes).** |
-| **Tier 4b: Custom Zero-Noise Patched Chromium + Human-In-The-Loop / Photogrammetry (3DGS / COLMAP)** | **Irreducible client-JS boundary.** Any code executing in a browser the attacker builds from C++ source with zero synthetic noise and human I/O can be read from V8 RAM during an authorized session. Keep truly secret formulas/keys **server-only** (`vibeslayer-policy-kit`). | **Multi-view / GPU driver dump possible by authorized user**, mitigated by chaff, scrambled tiles, budgets, and **64-bit server-baked buyer watermarking** for attribution. | **No mesh/UV/PBR recovery.** Attacker obtains only rate-limited, single-in-flight, focal/light-drifted, tilt-shifted 2D frames — every frame carries the **64-bit blind buyer watermark** (`trace-stream-frame`). |
+| **Tier 1: Scrapers, `curl`, `wget`, HTTrack, Static Rippers** | **Blocked (no plaintext served).** `GET /` returns an empty shell; assets are `AES-256-GCM` `.vsweb` blobs; manifest fails closed (`403`). | **Blocked.** No `.glb`/`.gltf` served; geometry & textures encrypted at rest. | **Blocked.** No 3D files or WebGL endpoints exist. |
+| **Tier 2: Standard Headless Automation (Playwright, Puppeteer, Selenium)** | **Blocked before lease.** `--anti-cdp` catches `navigator.webdriver` & `Runtime.enable`; `strict` blocks `HeadlessChrome` UAs server-side (no leases issued, no components mounted). | **Blocked before init.** `AUTOMATION_DENIED`, no WebGL buffers uploaded. | **Blocked before init.** `AUTOMATION_DENIED`, no frames rendered. |
+| **Tier 3: AI-Agent Reversers (CDP `Fetch.enable` / `Debugger.getScriptSource` + Transform Feedback)** | **Blocked by default (`Runtime.enable` caught).** If an attacker patches out `Runtime.enable` and dumps `blob:` JS from V8, dumped `.mjs`/`.js` is **offline-dead** (`VS_RUNTIME_KEY_REQUIRED` without live ECDH `rtKey`), carries the optional `96 KB` (`--js-bloat-kb`) decoy VM per file, and runs the inline `STEALTH_BROWSER_DENIED` guard. | **Normal-oracle killed; server-baked watermark survives.** Multi-view Transform Feedback / GPU capture can still approximate unwatermarked geometry up to Kruppa/SVD error (~1–6% Frobenius residual), while ripped world positions remain **64/64-bit forensically traceable** (`trace-shield-3d`) even if shader uniforms are stripped. | **Geometry withheld on server.** No vertices, indices, UVs, textures, or shaders are sent to the browser, and the viewer never creates a WebGL context. Wire frames are `AES-256-GCM` ciphertext; every decoded JPEG carries a visually invisible **`0.999`-confidence 64-bit buyer watermark**. |
+| **Tier 4a: Fingerprint-Noise Anti-Detect Browsers (CloakBrowser 146)** | **Denied (`STEALTH_BROWSER_DENIED`).** Blocked at loader (score `11/11`, no leases issued), server attestation (`403`), and inline inside extracted hardened Web Component `.mjs` files before `customElements.define(...)`. | **Denied (`STEALTH_BROWSER_DENIED`, blocked before handshake).** | **Denied (`STEALTH_BROWSER_DENIED`, blocked before handshake).** |
+| **Tier 4b: Custom Patched Chromium (No Fingerprint Noise) + Human-In-The-Loop / Photogrammetry (3DGS / COLMAP)** | **Irreducible client-JS boundary.** Any code executing in a browser the attacker builds from C++ source without synthetic noise and with human I/O can be read from V8 RAM during an authorized session. Keep truly secret formulas/keys **server-only** (`vibeslayer-policy-kit`). | **Multi-view / GPU driver dump possible by authorized user**, mitigated by chaff, scrambled tiles, budgets, and **64-bit server-baked buyer watermarking** for attribution. | **No mesh/UV/PBR recovery.** Attacker obtains only rate-limited, single-in-flight, focal/light-drifted, tilt-shifted 2D frames — every frame carries the **64-bit blind buyer watermark** (`trace-stream-frame`). |
 
 ---
 
@@ -32,12 +32,12 @@ Empirical side-by-side probing of live **CloakBrowser 146** versus unmodified **
 | 4 | **Integer-DPR `getBoundingClientRect()`** (`left:10, top:20`) | Exact `[10, 20]` | Poisoned `[9.953125, 19.984375]` | `+2` |
 | 5 | **OS Platform vs. Core System Fonts** (`Win32` / `MacIntel`) | Real OS matches installed core fonts | Spoofs `Win32` on Linux with `0/4` Windows fonts (`Segoe UI`, `Tahoma`, `Consolas`, `Calibri`) | `+2` |
 | 6 | **D3D11 NVIDIA/RTX WebGL Extension Parity** | Real D3D11 exposes `KHR_parallel_shader_compile` (`30+` exts) | Spoofed D3D11 RTX string missing `KHR_parallel_shader_compile` (`< 30` exts) | `+1` |
-| | **Total Anomaly Score** | **`0 / 11` (Zero False Positives)** | **`11 / 11` (`8 / 11` even with `--fingerprint-platform=linux`)** | Threshold: `balanced >= 4`, `strict >= 2` |
+| | **Total Anomaly Score** | **`0 / 11` (No False Positives)** | **`11 / 11` (`8 / 11` even with `--fingerprint-platform=linux`)** | Threshold: `balanced >= 4`, `strict >= 2` |
 
 ### Why Flag Tweaks Alone Do Not Evade Detection
 - Passing `--fingerprint-platform=linux` eliminates invariants #5 and #6, yet CloakBrowser still scores **`8 / 11`** (Canvas2D + WebGL + Audio + DOMRect) — exceeding both `strict` (`>= 2`) and `balanced` (`>= 4`).
 - In `--mode stream` (where WebGL is intentionally absent from the client loader), CloakBrowser still scores **`8 / 8`** (or `6 / 6` on Linux spoof), exceeding both thresholds.
-- Disabling the noise engine completely leaves a standard headless/automation profile unless the adversary builds a custom zero-noise browser from scratch (Tier 4b). For multi-engine coverage across 19 live browsers (including Camoufox, Patchright, Rebrowser, SeleniumBase UC, and Nodriver), see **[VeilBreak](https://github.com/HusX99/veilbreak)**.
+- Disabling the noise engine completely leaves a standard headless/automation profile unless the adversary builds a custom noise-free browser from scratch (Tier 4b). For multi-engine coverage across 19 live browsers (including Camoufox, Patchright, Rebrowser, SeleniumBase UC, and Nodriver), see **[VeilBreak](https://github.com/HusX99/veilbreak)**.
 
 ---
 
@@ -49,7 +49,7 @@ Empirical side-by-side probing of live **CloakBrowser 146** versus unmodified **
    - `--anti-stealth strict` (`>= 2`) will intentionally flag browsers that inject synthetic Canvas, Audio, or DOMRect noise. `--preset balanced` (`--anti-stealth balanced`, threshold `>= 4`) tolerates single-API farbling (score `2`), whereas multi-API privacy modes (Tor Browser, LibreWolf, Firefox `privacy.resistFingerprinting`, Brave Shields Aggressive) can score `4–6` and trigger **both** `strict` and `balanced` — use `--anti-stealth off` if those browsers must pass.
    - `--anti-cdp on` intentionally traps DevTools `Runtime.enable`; legitimate developers or users with DevTools open will trigger the trap. Disable via `--anti-cdp off` in development or staging environments.
 3. **Native ELF64 Memory Boundaries (`wrap-elf` vs. `build-elf-freestanding`)**:
-   - `wrap-elf` (used by repository auto-protect) executes the decrypted payload via a sealed `memfd_create` + `execveat` inside a static-PIE Intel CET wrapper (`0` `PT_INTERP`/`DT_NEEDED`, `LD_*` env scrubbing).
+   - `wrap-elf` (used by repository auto-protect) executes the decrypted payload via a sealed `memfd_create` + `execveat` inside a static-PIE Intel CET wrapper (no `PT_INTERP`/`DT_NEEDED`, `LD_*` env scrubbing).
    - `build-elf-freestanding` (`--vault`) additionally maps secret key/payload buffers via Linux `SYS_memfd_secret` (with automatic `mmap` + `MADV_DONTDUMP` + `mlock` fallback when the kernel does not expose `memfd_secret`).
    - On a machine where the adversary holds `root` / kernel privileges, live physical RAM inspection remains outside any userspace protector's boundary.
 
@@ -75,8 +75,8 @@ Reproducible locally with `make -C vibeslayer-native-core bench` and `npm run be
 | Target | Raw Size | Sealed Size | Overhead | Cold Unseal Latency |
 | :--- | ---: | ---: | ---: | ---: |
 | **Web Asset (`.vspk`)** | `116 B` | `233 B` | `2.01×` | `2.46 ms` |
-| **WASM Module (`.vspk`)** | `100 B` | `220 B` | `2.20×` (`0` `\0asm` bytes) | `0.97 ms` (unseal + instantiate) |
-| **3D Spatial (`.vs3d.vspk`)** | `581,260 B` | `749,679 B` | `1.29×` (`7.9998` bits/B) | `4.71 ms` (`0` frame ops) |
+| **WASM Module (`.vspk`)** | `100 B` | `220 B` | `2.20×` (no plaintext `\0asm` bytes) | `0.97 ms` (unseal + instantiate) |
+| **3D Spatial (`.vs3d.vspk`)** | `581,260 B` | `749,679 B` | `1.29×` (`7.9998` bits/B) | `4.71 ms` (no per-frame overhead) |
 | **AI Weights (`.vsra`, 64 KiB chunks)** | `262,231 B` | `262,303 B` | `1.0003×` (`+72 B`) | `1.45 ms` (`O(1)` chunk) |
 
 ---

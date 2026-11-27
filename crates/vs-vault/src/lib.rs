@@ -1,6 +1,6 @@
 //! `vs-vault`: Headerless, key-committing, 64-bit streaming AEAD asset vaults.
 //!
-//! Implements **VSPK3 v2** — hardened against all Loop 1 & Loop 2 audit findings:
+//! Implements **VSPK3 v2** streaming authenticated vaults:
 //! 1. **64-bit Rogaway-Zhang STREAM chunked AEAD** (`64 KiB` chunks, constant `~134 KiB` RAM,
 //!    pre-expanded once-per-stream `StreamAeadKey` + `HmacKey` with single-buffer in-place
 //!    sealing/opening, `O(1)` random-access chunk seek).
@@ -9,8 +9,9 @@
 //! 3. **Exact `MIN_TWO_CHUNKS` (`66,656` B) lookahead window**: rejects truncated `[66609..66655]`
 //!    containers *before* decrypting chunk `0`, explicitly flushes writers, and zeroizes all
 //!    sensitive buffers on every normal or error exit (`Zeroizing`).
-//! 4. **Single unified constant-time `VaultError::AuthenticationFailed`** (zero error oracles).
-//! 5. **Pluggable `KmsProvider` trait** + audited backward-compatible **VSPK3 v1** and **VSPK2**.
+//! 4. **Single unified constant-time `VaultError::AuthenticationFailed`** (no distinction between
+//!    commitment, tag, or padding failures).
+//! 5. **Pluggable `KmsProvider` trait** + backward-compatible **VSPK3 v1** and **VSPK2**.
 
 #![forbid(unsafe_code)]
 

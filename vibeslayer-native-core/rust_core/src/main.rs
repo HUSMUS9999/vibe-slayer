@@ -88,7 +88,7 @@ impl KeyArgs {
                 .map(Some)
                 .map_err(|_| "invalid key: expected 64 hex chars (32 bytes)".into());
         }
-        // Fallback to VIBESLAYER_KEY env ONLY when no explicit CLI key flag was passed (Loop 3 LOW-8)
+        // Fallback to VIBESLAYER_KEY env ONLY when no explicit CLI key flag was passed
         if let Ok(env_val) = std::env::var("VIBESLAYER_KEY") {
             let zeroed = Zeroizing::new(env_val);
             if !zeroed.trim().is_empty() {
@@ -102,7 +102,7 @@ impl KeyArgs {
 }
 
 fn read_key_file(path: &Path, allow_insecure: bool) -> Result<SecretKey32, String> {
-    // Open once and validate permissions on the open fd + bounded 256-byte read (zero TOCTOU/OOM — Loop 3 LOW-9)
+    // Open once, fstat the open fd for permissions, and cap reads to 256 bytes.
     let file = File::open(path).map_err(|e| format!("open key file failed: {e}"))?;
     #[cfg(unix)]
     if !allow_insecure {
@@ -174,7 +174,7 @@ enum Commands {
     /// Run built-in cryptographic & watermark self-verification demo
     Demo,
 
-    /// Serve a single .glb model or a directory of .glb models via zero-geometry pixel streaming
+    /// Serve a single .glb model or a directory of .glb models via server-side pixel streaming
     #[command(name = "serve-3d", alias = "serve3d")]
     Serve3d {
         /// Path to a .glb file or directory containing .glb models

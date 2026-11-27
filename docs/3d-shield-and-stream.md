@@ -1,4 +1,4 @@
-# 3D Model Shield & Encrypted Zero-Geometry Stream
+# 3D Model Shield & Encrypted Server-Rendered Stream
 
 [← Back to README](../README.md) · [Beginner's Guide](./getting-started-beginners.md) · [Web & Web Components](./web-and-web-components.md) · [CLI & Configuration](./cli-and-configuration.md) · [Threat Model](./threat-model-and-benchmarks.md)
 
@@ -6,12 +6,12 @@ Standard 3D web viewers ship raw `.glb`/`.gltf` files directly into browser RAM 
 
 Vibe-Slayer provides **two interactive 3D delivery modes** from the exact same `shield-3d` cooked bundle (`scene.vsshield2` + `tex_*.vsbin` / `stream_tex_*.vsbin`):
 
-1. **`--mode stream` (Default in `--preset paranoid`) — Zero-Geometry Encrypted Pixel Stream**:
-   - **0 vertices, 0 indices, 0 UVs, 0 textures, 0 GLSL shaders, 0 WebGL contexts, and 0 projection matrices** ever reach the browser.
+1. **`--mode stream` (Default in `--preset paranoid`) — Server-Side Encrypted Pixel Stream**:
+   - Vertices, indices, UVs, textures, GLSL shaders, and projection matrices **never leave the server**, and the client viewer uses Canvas2D without creating a WebGL context.
    - A multi-threaded pure-Rust software PBR rasterizer renders frames server-side, embeds an imperceptible **post-JPEG blind 64-bit forensic buyer watermark**, and encrypts each frame with per-session **ECDH P-256 + HKDF-SHA256 + AES-256-GCM** (`Content-Type: application/octet-stream`).
 2. **`--mode gpu` (Default in `--preset balanced` and `--preset fast`) — Hardened WebGL2 Encrypted-Vertex Viewer**:
    - Runs at native 60 FPS on the client GPU while keeping geometry encrypted at rest (`scene.vsshield2`), injecting decoy chaff triangles (`20%`–`50%`), scrambling textures into per-asset shuffled JPEG/PNG tile grids (`4×4`, `8×8`, `16×16`), serving fused camera matrices per view step, and baking a **server-side 64-bit BPSK forensic buyer watermark** into the vertex stream.
-   - **Honest Boundary for `--mode gpu`:** Treat `--mode gpu` as a client-side deterrent + forensic watermark layer. Because the browser GPU still receives encrypted vertices, ephemeral uniforms, and projection matrices to render locally, a determined attacker who captures the shader output and queries `/__vibeslayer/camera` across multiple camera angles can invert the linear projection system and reconstruct Euclidean geometry. Whenever absolute mesh confidentiality is required, use **`--mode stream`**.
+   - **Security boundary for `--mode gpu`:** Treat `--mode gpu` as a client-side deterrent + forensic watermark layer. Because the browser GPU still receives encrypted vertices, ephemeral uniforms, and projection matrices to render locally, a determined attacker who captures the shader output and queries `/__vibeslayer/camera` across multiple camera angles can invert the linear projection system and reconstruct Euclidean geometry. Whenever absolute mesh confidentiality is required, use **`--mode stream`**.
 
 ---
 
@@ -19,10 +19,10 @@ Vibe-Slayer provides **two interactive 3D delivery modes** from the exact same `
 
 | Property | `--mode stream` (`paranoid` default) | `--mode gpu` (`balanced` / `fast` default) |
 | :--- | :--- | :--- |
-| **Mesh / UVs / Textures in Browser** | **Zero** (never leaves the server) | Encrypted + chaff + per-asset scrambled tiles (rendered in WebGL2) |
+| **Mesh / UVs / Textures in Browser** | **None** (never leaves the server) | Encrypted + chaff + per-asset scrambled tiles (rendered in WebGL2) |
 | **Wire Payload** | `application/octet-stream`: `seq_le(8) \|\| iv(12) \|\| AES-256-GCM(JPEG) \|\| tag(16)` (`AAD = VS3D_FRAME\|<seq>`) | Encrypted vertex chunks + per-asset scrambled tile atlases + ephemeral view uniforms |
-| **Defense vs. WebGL / Transform-Feedback / RenderDoc / AI-Agent Mesh Ripping** | **Total** (`0` vertices exist on client) | Raises cost against casual/automated rippers; determined attackers with shader + camera-oracle access can invert geometry (use `--mode stream` for hard secrecy) |
-| **Defense vs. Photogrammetry / Multi-View 3DGS** | Compensated tilt-shift `(cx, cy)` + focal/lighting drift + single-in-flight frame serialization + session camera budget | Per-frame camera jitter + session camera budget + zero-normal-oracle |
+| **Defense vs. WebGL / Transform-Feedback / RenderDoc / AI-Agent Mesh Ripping** | **Total** (no geometry exists on the client) | Raises cost against casual/automated rippers; determined attackers with shader + camera-oracle access can invert geometry (use `--mode stream` for hard secrecy) |
+| **Defense vs. Photogrammetry / Multi-View 3DGS** | Compensated tilt-shift `(cx, cy)` + focal/lighting drift + single-in-flight frame serialization + session camera budget | Per-frame camera jitter + session camera budget + derivative-only lighting (no normal oracle) |
 | **Forensic Buyer Watermark** | Blind post-JPEG 64-bit Weber-Fechner pixel watermark (`trace-stream-frame`, exact uncropped frame) | Server-baked 64-bit BPSK vertex watermark (`trace-shield-3d`, raw lattice vertex stream) |
 | **Rendering Latency** | `~20–25 ms` RTT at `1280×820` on 53K-tri PBR mesh (`~40+` interactive FPS) | Native `60 FPS` client GPU |
 | **Anti-CDP & Anti-Stealth** | Yes (`--anti-cdp`, `--anti-stealth`, no WebGL required on client) | Yes (`--anti-cdp`, `--anti-stealth`) |
@@ -45,7 +45,7 @@ Store the `.vsshield.key` file **outside** the bundle output directory using `--
 
 The command automatically verifies real-vertex accuracy (`maxClipSpaceError`) and chaff triangle clipping immediately after cooking and prints a JSON build report.
 
-### Step 2: Serve in Zero-Geometry Encrypted Stream Mode (`paranoid`)
+### Step 2: Serve in Server-Rendered Encrypted Stream Mode (`paranoid`)
 
 ```bash
 ./vibe-slayer serve-3d ./dist/hero_shielded \
@@ -90,11 +90,11 @@ export VIBESLAYER_AUTH_HMAC_KEY=$(openssl rand -hex 32)
 
 ## 3. Security Architecture Deep-Dive
 
-### Encrypted Zero-Geometry Stream (`--mode stream`)
+### Encrypted Server-Rendered Stream (`--mode stream`)
 
 ```mermaid
 sequenceDiagram
-    participant C as Browser Canvas2D<br/>(0 WebGL, 0 Geometry)
+    participant C as Browser Canvas2D<br/>(No WebGL or Geometry)
     participant S as vibe-slayer serve-3d<br/>(Rust PBR Rasterizer)
     C->>S: POST /__vibeslayer/stream-init<br/>(ECDH P-256 + Ticket + Stealth Digest)
     S-->>C: HKDF-SHA256 Session Key<br/>(WebCrypto extractable: false)
@@ -110,7 +110,7 @@ sequenceDiagram
 
 ### Encrypted WebGL2 Viewer (`--mode gpu`)
 - **Multi-Stage GPU Vertex Cipher**: Vertices are encrypted into `scene.vsshield2` and decrypted inside the WebGL2 vertex shader across `16..=192` nonlinear stages (`--gpu-stages`) paired with `0..=75%` decoy chaff triangles (`--chaff-pct`) clipped out of NDC view.
-- **Zero-Normal-Oracle Lighting**: Fragment shading uses screen-space derivatives (`dFdx`/`dFdy`) and tangent/normal decoupling without exposing raw object-space normal attributes.
+- **Derivative-Only Lighting (No Normal Oracle)**: Fragment shading uses screen-space derivatives (`dFdx`/`dFdy`) and tangent/normal decoupling without exposing raw object-space normal attributes.
 - **Per-Asset Scrambled Tile Atlases**: Opaque PBR textures are JPEG-encoded (`--tex-format auto`) and alpha textures PNG-encoded, then permuted into a `tileGrid × tileGrid` atlas (up to `16×16 = 256` shuffled tiles) unscrambled on the fly in the fragment shader via an asset tile map.
 - **Server-Baked Watermark**: The 64-bit BPSK watermark is baked into vertex positions on the server before encryption (`trace-shield-3d` expects raw pre-MVP `int32` lattice-space positions at original `gl_VertexID` indices).
 
@@ -168,8 +168,8 @@ Benchmarked on a real textured 52,965-triangle PBR asset (`4096×4096` textures;
 
 | Metric | Measured Value |
 | :--- | :--- |
-| **`shield-3d` build (`--preset paranoid`)** | `0` plaintext glTF/PNG/JPEG headers; `maxClipSpaceError <= 1e-6` |
+| **`shield-3d` build (`--preset paranoid`)** | No plaintext glTF/PNG/JPEG headers; `maxClipSpaceError <= 1e-6` |
 | **`serve-3d --mode stream` (`1280×820`, AES-256-GCM)** | **`23.7 ms`** end-to-end render + watermark + JPEG + AES-GCM RTT |
 | **Post-JPEG blind 64-bit watermark confidence** | **`0.999394`** (`64/64` bits exact match, visually spotless) |
-| **Client-exposed geometry / shaders / WebGL contexts (`stream`)** | **`0`** |
-| **CloakBrowser 146 blocked (`strict` & `balanced`)** | **`100%`** (`0` handshakes, `STEALTH_BROWSER_DENIED`) |
+| **Client-exposed geometry / shaders / WebGL contexts (`stream`)** | **None** |
+| **CloakBrowser 146 blocked (`strict` & `balanced`)** | **Blocked** before handshake (`STEALTH_BROWSER_DENIED`) |

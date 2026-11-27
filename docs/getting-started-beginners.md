@@ -4,7 +4,7 @@
 
 You do **not** need to be a cryptography or reverse-engineering expert to protect your website, Web Components, 3D models, source code, or Linux binaries.
 
-Vibe-Slayer includes a **built-in natural-language command translator** (`ask` and `explain`) that runs 100% locally in Rust (zero API keys, zero internet calls, zero Node.js). You describe what you want in everyday language, Vibe-Slayer shows you the exact command and explains every flag clearly, and then runs it.
+Vibe-Slayer includes a **built-in natural-language command translator** (`ask` and `explain`) that runs offline in Rust. You describe what you want in everyday language, Vibe-Slayer shows you the exact command and explains every flag clearly, and then runs it.
 
 ---
 
@@ -23,7 +23,7 @@ Example output:
   Goal:      Encrypt website & Web Components in ./dist -> ./dist-protected
   Command:   ./vibe-slayer website ./dist -o ./dist-protected --preset paranoid --origin http://127.0.0.1:8080 --anti-stealth strict
   Why:
-    - Paranoid preset selected for maximum defense (strict anti-stealth, anti-CDP, JS rtKey hardening, zero-geometry 3D stream)
+    - Paranoid preset selected for maximum defense (strict anti-stealth, anti-CDP, JS rtKey hardening, server-rendered 3D stream)
     - --anti-stealth strict: blocks anti-detect / stealth browsers (e.g. CloakBrowser) via 6 rendering & OS invariants before any lease or Custom Element mounts
   Next step:
     ./vibe-slayer serve ./dist-protected --preset paranoid --addr 127.0.0.1:8080 --origin http://127.0.0.1:8080 --anti-stealth strict
@@ -47,7 +47,7 @@ Creates a temporary sandbox project, scans for leaked secrets, encrypts code & a
 # Step 1: Encrypt your site & Web Components
 ./vibe-slayer ask "protect my website ./dist and block stealth browsers on port 8080"
 
-# Step 2: Launch the zero-Node live runtime server
+# Step 2: Start the local runtime server
 ./vibe-slayer ask "serve my protected website ./dist-protected on port 8080"
 ```
 
@@ -62,12 +62,12 @@ Deploying behind Nginx, Caddy, or Cloudflare?
 ./vibe-slayer ask "serve my protected website ./dist-protected on port 8080 behind nginx"
 ```
 
-### Protect & Stream a 3D `.glb` Model (Zero Geometry Sent to Browser)
+### Protect & Stream a 3D `.glb` Model (Geometry Stays on the Server)
 ```bash
 # Step 1: Cook encrypted 3D bundle (keeps master key outside the bundle folder at ./hero.glb.vsshield.key)
 ./vibe-slayer ask "stream my 3d model ./hero.glb without sending geometry"
 
-# Step 2: Start the zero-geometry encrypted pixel stream viewer (auto-detects ./hero.glb.vsshield.key)
+# Step 2: Start the server-rendered encrypted pixel stream viewer (auto-detects ./hero.glb.vsshield.key)
 ./vibe-slayer ask "serve my 3d model ./hero.glb.shielded on port 8790 without sending geometry"
 ```
 
@@ -120,7 +120,7 @@ If you prefer explicit flags over plain English, every command accepts just **on
 | :--- | :--- | :--- |
 | **Local dev / Playwright CI tests** | `--preset fast` | Fast encryption, relaxed CSP, anti-automation probes off so automated tests pass |
 | **Public consumer website / 60 FPS WebGL** | `--preset balanced` *(default)* | Strict CSP, anti-CDP, balanced anti-stealth (`score >= 4`), 60 FPS GPU 3D |
-| **Paid SaaS, Web Components, High-Value 3D IP** | `--preset paranoid` | Runtime-keyed `rtKey` JS hardening, optional `96 KB` decoy VM (`--js-bloat-kb`), inline Web Component stealth guard, strict server verification, zero-geometry encrypted 3D pixel streaming |
+| **Paid SaaS, Web Components, High-Value 3D IP** | `--preset paranoid` | Runtime-keyed `rtKey` JS hardening, optional `96 KB` decoy VM (`--js-bloat-kb`), inline Web Component stealth guard, strict server verification, server-rendered encrypted 3D pixel streaming |
 
 ---
 

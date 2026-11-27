@@ -2,7 +2,7 @@
 
 [← Back to README](../README.md) · [Beginner's Guide](./getting-started-beginners.md) · [Web & Web Components](./web-and-web-components.md) · [3D Shield](./3d-shield-and-stream.md) · [Native Binaries & SDKs](./native-binaries-and-sdks.md)
 
-`vibe-slayer` is a standalone, zero-dependency Rust binary (zero external crates, zero Node.js runtime). Every build and runtime command supports **one-flag security presets** (`--preset fast | balanced | paranoid`), **human-editable JSON config files** (`--config vibeslayer.config.json`), **environment variables**, and **per-flag CLI overrides** with strict fail-closed validation.
+`vibe-slayer` is a standalone Rust binary. Every build and runtime command supports **one-flag security presets** (`--preset fast | balanced | paranoid`), **human-editable JSON config files** (`--config vibeslayer.config.json`), **environment variables**, and **per-flag CLI overrides** with strict fail-closed validation.
 
 ---
 
@@ -44,7 +44,7 @@ Settings resolve deterministically in the following order (highest priority firs
 | **Website / 3D: `--csp`** | `relaxed` | `strict` | `strict` |
 | **3D Build: `--gpu-stages` / `--chaff-pct`** | `32` / `20%` | `96` / `37.5%` | `128` / `50%` |
 | **3D Build: `--tile-grid` / `--tex-quality`** | `8` / `85` | `16` / `90` | `16` / `92` |
-| **3D Serve: `--mode`** | `gpu` (WebGL2) | `gpu` (WebGL2) | `stream` (Zero-Geometry AES-256-GCM frames) |
+| **3D Serve: `--mode`** | `gpu` (WebGL2) | `gpu` (WebGL2) | `stream` (Server-rendered AES-256-GCM frames) |
 | **3D Serve: `--stream-width` × `--stream-height`** | `800×540` (q `80`) | `960×640` (q `84`) | `960×640` (q `86`) |
 | **3D Serve: `--wm-strength` / `--camera-jitter`** | `1.0` / `0.5` | `1.2` / `1.0` | `1.8` / `1.5` |
 | **Runtime: `--ticket-ttl` / `--session-ttl`** | `60s` / `1800s` | `30s` / `600s` | `20s` / `180s` |
@@ -147,7 +147,7 @@ Pass the config file to any command and optionally override individual flags on 
 
 ### 0. Plain-English Natural-Language Commands (Beginners)
 
-Translate everyday English requests into exact, verified `vibe-slayer` commands (100% local in Rust, zero API keys):
+Translate everyday English requests into exact, verified `vibe-slayer` commands (runs offline in Rust):
 
 | Command | Usage | Purpose |
 | :--- | :--- | :--- |
@@ -247,7 +247,7 @@ Supports the shared HTTP/security runtime flags (`--preset`, `--config`, `--addr
 
 | Flag | Config Key (`serve3d.*`) | Valid Values / Range | Description |
 | :--- | :--- | :--- | :--- |
-| `--mode` | `renderMode` | `gpu`, `stream` | `gpu`: WebGL2 encrypted-vertex viewer; `stream`: Zero-Geometry server-rasterized AES-256-GCM pixel stream |
+| `--mode` | `renderMode` | `gpu`, `stream` | `gpu`: WebGL2 encrypted-vertex viewer; `stream`: server-rasterized AES-256-GCM pixel stream |
 | `--stream-width` | `streamWidth` | `320..=1920` | Stream frame width in pixels |
 | `--stream-height` | `streamHeight` | `240..=1080` | Stream frame height in pixels |
 | `--stream-quality` | `streamQuality` | `50..=96` | Stream JPEG quality before AES-256-GCM frame encryption |

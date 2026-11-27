@@ -12,7 +12,7 @@
       "plaintextSecretInFile": true,
       "callableOffline": true,
       "staticCdnCompatible": true,
-      "honestNote": "Baseline control; zero build/runtime overhead, 100% readable source"
+      "honestNote": "Baseline control; unprotected readable source"
     },
     {
       "tool": "esbuild (--minify)",
@@ -34,7 +34,7 @@
       "plaintextSecretInFile": true,
       "callableOffline": true,
       "staticCdnCompatible": true,
-      "honestNote": "Standard production minifier; smallest static bundle, zero offline defense"
+      "honestNote": "Standard production minifier; smallest static bundle, no offline defense"
     },
     {
       "tool": "javascript-obfuscator (default)",
@@ -115,7 +115,7 @@
       "functionalOk": true,
       "plaintextRodataLeaked": true,
       "triviallyUnpackable": true,
-      "honestNote": "Smaller & zero runtime overhead; strips symbol table only \u2014 .rodata & disassembly remain 100% plaintext"
+      "honestNote": "Smaller binary with no runtime overhead; strips symbol table only — .rodata & disassembly remain plaintext"
     },
     {
       "tool": "UPX (--best)",

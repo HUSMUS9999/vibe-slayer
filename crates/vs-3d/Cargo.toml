@@ -1,6 +1,6 @@
 [package]
 name = "vs-3d"
-description = "Spec-compliant glTF 2.0 scene-graph ingestion, anti-3DGS camera defense, spherical view-coverage budgets, and multi-SKU zero-geometry PBR rendering"
+description = "Spec-compliant glTF 2.0 scene-graph ingestion, anti-3DGS camera defense, spherical view-coverage budgets, and multi-SKU server-side PBR rendering"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

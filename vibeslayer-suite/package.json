@@ -16,8 +16,7 @@
     "aead",
     "webcrypto",
     "anti-tamper",
-    "anti-scraping",
-    "zero-dependency"
+    "anti-scraping"
   ],
   "bin": {
     "vs": "./cli/vs.js",

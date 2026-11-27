@@ -12,7 +12,7 @@
       .accent-fill { fill: #38BDF8; stroke: none; }
     </style>
 
-    <!-- Exact contour masks for 100% true-transparency occlusion -->
+    <!-- Contour masks for transparent occlusion -->
     <mask id="mask-behind-all">
       <rect x="0" y="0" width="680" height="384" fill="white"/>
       
@@ -81,7 +81,7 @@
 
   <!-- ============ LAYER 1: UNIFIED SILKY PALADIN CLOAK (LEFT) ============ -->
   <g id="paladin-cloak" mask="url(#mask-behind-all)">
-    <!-- Exact-contour subtle tonal drape wash (zero stray triangles!) -->
+    <!-- Exact-contour subtle tonal drape wash -->
     <path class="ink-shade" d="M 316,143 C 276,136 232,144 194,164 C 172,175 154,188 144,199 C 158,200 175,196 192,190 C 172,206 156,222 148,236 C 168,238 194,232 218,223 C 202,235 186,245 170,253 C 210,256 254,246 296,228 L 312,218 Z"/>
     <!-- Unified billowing outer contour -->
     <path class="ink-heavy" d="M 316,143 C 276,136 232,144 194,164 C 172,175 154,188 144,199 C 158,200 175,196 192,190 C 172,206 156,222 148,236 C 168,238 194,232 218,223 C 202,235 186,245 170,253 C 210,256 254,246 296,228 L 312,218 Z"/>

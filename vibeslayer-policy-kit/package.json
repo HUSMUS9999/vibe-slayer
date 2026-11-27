@@ -13,8 +13,7 @@
     "anti-scraping",
     "anti-bot",
     "aes-gcm",
-    "typescript",
-    "zero-dependency"
+    "typescript"
   ],
   "main": "./src/index.js",
   "types": "./src/index.d.ts",

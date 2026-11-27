@@ -1,4 +1,4 @@
-//! `vs-3d`: Spec-compliant glTF 2.0 scene ingestion, zero-geometry PBR rendering, anti-3DGS
+//! `vs-3d`: Spec-compliant glTF 2.0 scene ingestion, server-side PBR rendering, anti-3DGS
 //! defense, and multi-SKU asset catalog (`#![forbid(unsafe_code)]`).
 //!
 //! Hardened v2 engine:
@@ -154,7 +154,7 @@ pub struct Triangle {
     pub material_idx: usize,
 }
 
-/// Normalized, scene-graph-resolved glTF 2.0 3D asset ready for zero-geometry server rendering.
+/// Normalized, scene-graph-resolved glTF 2.0 3D asset ready for server-side rendering.
 #[derive(Debug, Clone)]
 pub struct Scene3D {
     pub id: String,

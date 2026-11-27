@@ -34,8 +34,8 @@ Point `./vibe-slayer` at any directory or individual file:
 
 | Input Type | Output / Engine | Cryptographic & Runtime Properties |
 | :--- | :--- | :--- |
-| **Source Code, Configs, `.wasm`, AI Weights** (`.py`, `.rs`, `.go`, `.c`, `.cpp`, `.js`, `.ts`, `.java`, `.cs`, `.wasm`, `.safetensors`, `.onnx`, `.gguf`, `.pt`, `.ckpt`) | `VSPK3` (`.vspk3`) | Whole-file headerless key-committing AEAD (`HKDF-SHA256` + `HMAC-SHA256` `CMT4` + `ChaCha20-Poly1305`), `1024 B` pad-then-encrypt, `0` plaintext magic bytes, `>= 7.0` bits/B entropy *(for `O(1)` 64 KiB random-access chunked AI weights, use `.vsra` in `vibeslayer-suite`)* |
-| **Compiled Linux `ELF64` Executables** (excluding `.so`/`.node`/`.o`/`.a`) | `wrap-elf` (`.protected`) | Freestanding `-nostdlib` static-PIE wrapper stub (`0` `PT_INTERP`/`DT_NEEDED`, Intel CET `IBT` + `SHSTK`), scrubs all `LD_*` (`LD_PRELOAD`, `LD_LIBRARY_PATH`, `LD_AUDIT`, etc.) + `GCONV_PATH`/`LOCPATH`/`HOSTALIASES`/`VS_LEASE_FD`, blocks pre-exec `ptrace` (`TracerPid` + `PR_SET_DUMPABLE=0`), hashes non-writable `PT_LOAD` segment, executes from sealed `memfd_create` via `SYS_execveat(AT_EMPTY_PATH)` *(note: Linux resets `PR_SET_DUMPABLE` on `execveat`; call `vs_harden_process()` inside the inner binary if post-exec dump hardening is needed)* |
+| **Source Code, Configs, `.wasm`, AI Weights** (`.py`, `.rs`, `.go`, `.c`, `.cpp`, `.js`, `.ts`, `.java`, `.cs`, `.wasm`, `.safetensors`, `.onnx`, `.gguf`, `.pt`, `.ckpt`) | `VSPK3` (`.vspk3`) | Whole-file headerless key-committing AEAD (`HKDF-SHA256` + `HMAC-SHA256` `CMT4` + `ChaCha20-Poly1305`), `1024 B` pad-then-encrypt, no plaintext magic bytes, `>= 7.0` bits/B entropy *(for `O(1)` 64 KiB random-access chunked AI weights, use `.vsra` in `vibeslayer-suite`)* |
+| **Compiled Linux `ELF64` Executables** (excluding `.so`/`.node`/`.o`/`.a`) | `wrap-elf` (`.protected`) | Freestanding `-nostdlib` static-PIE wrapper stub (no `PT_INTERP`/`DT_NEEDED`, Intel CET `IBT` + `SHSTK`), scrubs all `LD_*` (`LD_PRELOAD`, `LD_LIBRARY_PATH`, `LD_AUDIT`, etc.) + `GCONV_PATH`/`LOCPATH`/`HOSTALIASES`/`VS_LEASE_FD`, blocks pre-exec `ptrace` (`TracerPid` + `PR_SET_DUMPABLE=0`), hashes non-writable `PT_LOAD` segment, executes from sealed `memfd_create` via `SYS_execveat(AT_EMPTY_PATH)` *(note: Linux resets `PR_SET_DUMPABLE` on `execveat`; call `vs_harden_process()` inside the inner binary if post-exec dump hardening is needed)* |
 | **Small Secrets (`<= 4096 B`)** (`.vault`, `.secret`, or `--vault`) | `freestanding-vault` | Static-PIE ELF data vault allocating decrypted payload inside kernel `SYS_memfd_secret(0)` (with `MADV_DONTDUMP` + `mlock` fallback) |
 | **3D Models (`.glb`)** | Dual `VSPK3` + keyed `VS3D` | Lossless `.glb.vspk3` for exact SHA-256 restoration + keyed `.glb.vs3d` coordinate stream supporting `WM64` 64-bit spread-spectrum watermarking (use `shield-3d` for full glTF 2.0 web/stream rendering) |
 | **Secrets & Private Keys** (`.env`, `.pem`, `.key`, `.p12`, `.pfx`, or detected credentials) | `VSPK3` (`.vspk3`) | Automatically forced into encryption even if filename looks public; vault keys stored in `<project>/.vibeslayer/keys.json` (`0600`) and auto-added to `.gitignore` |
@@ -57,7 +57,7 @@ Point `./vibe-slayer` at any directory or individual file:
 All four native SDKs (`Rust`, `C/C++`, `Go`, `Python`) interoperate over the exact same binary wire formats:
 
 - **`VSPK2`**: Self-describing domain/asset/context header + `HKDF-SHA256` per-asset key derivation + `RFC 8439 ChaCha20-Poly1305` AEAD.
-- **`VSPK3`**: Headerless `92 B` prefix (`salt(32) || nonce(12) || CMT4_HMAC(32) || Poly1305_tag(16)`) + `1024 B`-padded ciphertext. Zero plaintext magic bytes or metadata on disk; verifies key-committing `CMT4` in constant time before decrypting.
+- **`VSPK3`**: Headerless `92 B` prefix (`salt(32) || nonce(12) || CMT4_HMAC(32) || Poly1305_tag(16)`) + `1024 B`-padded ciphertext. Omits plaintext magic bytes and metadata on disk; verifies key-committing `CMT4` in constant time before decrypting.
 
 Pack an asset once from the CLI and unseal it in any language:
 
@@ -105,7 +105,7 @@ int load_rules(const uint8_t master_key[32], const uint8_t *vspk3, size_t vspk3_
         sizeof(plain)
     );
     if (n < 0) {
-        /* -1: args/bounds, -3: Poly1305/length failure, -4: CMT-4 commitment failure */
+        /* VS_ERR_AUTH (-1) on any auth, commitment, padding, or bounds failure */
         return n;
     }
     /* Use plain[0..n], then zeroize before returning */
@@ -121,7 +121,7 @@ Available C exports:
 
 ### Python (`vibeslayer-native-core/sdk_python/vibeslayer.py`)
 
-Backed directly by compiled `../bin/libvibeslayer.so` via `ctypes` (zero pip dependencies; build first with `make -C vibeslayer-native-core all` and run with `PYTHONPATH=vibeslayer-native-core/sdk_python`):
+Backed directly by compiled `../bin/libvibeslayer.so` via Python's standard-library `ctypes` (build first with `make -C vibeslayer-native-core all` and run with `PYTHONPATH=vibeslayer-native-core/sdk_python`):
 
 ```python
 from pathlib import Path
@@ -156,7 +156,7 @@ finally:
 
 ### Go (`vibeslayer-native-core/sdk_go/vibeslayer.go`)
 
-Pure Go standard library implementation (zero `cgo`, zero external modules):
+Pure Go standard library implementation (no `cgo` required):
 
 ```go
 policy := &vibeslayer.Policy{
@@ -183,17 +183,25 @@ plain, err := policy.UnsealActionVspk3(
 )
 ```
 
-### Rust (`vibeslayer-native-core/rust_core`)
+### Rust (`crates/vs-vault`)
 
-Zero external crates — import `vibeslayer_core` directly as a path crate:
+Import `vs-vault` and `vs-crypto` directly from the workspace:
 
 ```rust
-use vibeslayer_core::{pack_vspk3, unseal_vspk3, secure_zero};
+use std::io::Cursor;
+use vs_crypto::{AeadAlg, SecretKey32};
+use vs_vault::{seal_vspk3_v2_stream, unseal_vspk3_v2_stream};
 
-let sealed = pack_vspk3(&master_key, "billing", "pricing-rules-v1", "prod-eu", plaintext)?;
-let mut opened = unseal_vspk3(&master_key, "billing", "pricing-rules-v1", "prod-eu", &sealed)?;
-// use `opened`, then scrub memory:
-secure_zero(&mut opened);
+let mut sealed = Vec::new();
+seal_vspk3_v2_stream(
+    &master_key, AeadAlg::Aes256Gcm, "billing", "pricing-rules-v1", "prod-eu",
+    Cursor::new(plaintext), &mut sealed,
+)?;
+let mut opened = Vec::new();
+unseal_vspk3_v2_stream(
+    &master_key, "billing", "pricing-rules-v1", "prod-eu",
+    Cursor::new(&sealed), &mut opened,
+)?;
 ```
 
 ---

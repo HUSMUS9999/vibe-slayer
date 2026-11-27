@@ -1,6 +1,6 @@
-//! `vs-server`: Hardened async Tokio/Axum multi-SKU zero-geometry 3D streaming & `.vsweb` v2 server.
+//! `vs-server`: Hardened async Tokio/Axum `.vsweb` v2 asset server and optional multi-SKU server-rendered 3D streamer.
 //!
-//! Loop 2 security & scalability guarantees (`#![forbid(unsafe_code)]`):
+//! Security and concurrency design (`#![forbid(unsafe_code)]`):
 //! - Async HTTP/1.1+HTTP/2 with `TimeoutLayer`, strict `DefaultBodyLimit` (`16 KiB` JSON / `4 MiB`
 //!   forensics), bounded `render_sem` + `forensics_sem` with `503` backpressure timeouts, and
 //!   non-blocking `spawn_blocking` for all glTF I/O, rendering, and FFT decoding.
@@ -9,7 +9,7 @@
 //! - Image decompression-bomb limits (`2048×2048`, `32 MiB`) before decoding on `/v1/forensics/trace`.
 //! - Bounded `sessions` map, per-subject active session caps, secondary subject-level spherical
 //!   `ViewCoverageBudget` (defeating multi-session 3DGS sweeps), cached `Bytes` turntables,
-//!   DOM-safe `<vs-3d-viewer>` (zero `innerHTML` XSS), and validated CSP `frame-ancestors`.
+//!   DOM-safe `<vs-3d-viewer>` (built with DOM APIs instead of `innerHTML`), and validated CSP `frame-ancestors`.
 
 #![forbid(unsafe_code)]
 
@@ -52,7 +52,7 @@ mod server_3d {
     const DEFAULT_CSP_PREFIX: &str =
         "default-src 'self'; img-src 'self' data: blob:; style-src 'self'; script-src 'self'; frame-ancestors ";
 
-    /// Configuration for the multi-SKU zero-geometry 3D streaming server.
+    /// Configuration for the multi-SKU server-rendered 3D streaming server.
     #[derive(Debug, Clone)]
     pub struct Server3dConfig {
         pub wm_key: SecretKey32,

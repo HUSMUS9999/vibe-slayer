@@ -1,5 +1,5 @@
 """
-`vibeslayer` Python Native SDK (`v2.0.0-alpha.1`) — Zero Node.js, backed directly
+`vibeslayer` Python Native SDK (`v2.0.0-alpha.1`) — `ctypes` bindings backed directly
 by compiled C shared library `bin/libvibeslayer.so` via `ctypes`.
 
 Supports 64-bit streaming VSPK3 v2 (`unseal_action_vspk3_v2_file`, constant ~132 KiB RAM,
